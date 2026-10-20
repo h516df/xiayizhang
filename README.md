@@ -1,6 +1,6 @@
-# 下一章 · Android 0.2 工作区预览
+# 下一章 · Android 0.3
 
-A local-first personal novel and text reader/editor. This is a private prototype, not a store-published or stable release. All sample fiction is original synthetic text.
+A local-first personal novel and text reader/editor. The first dedicated-signed installable release is 0.3. It is not store-published; physical-device and real-provider acceptance remain unverified. All sample fiction is original synthetic text.
 
 ## Selection-first writing and local references
 
@@ -38,3 +38,7 @@ JDK 21; Android SDK 36; Gradle 9.1; Android Gradle Plugin 9.0.1. Dependencies ar
 The repository/publication status is tracked separately from this local build. Do not commit API keys, signing keys, user manuscripts, or private data.
 
 See WRITING_WORKSPACE.md for the stage contract and deferred work. TESTING.md distinguishes the earlier baseline from this increment.
+
+## Version and updates
+
+On the bookshelf, open 检查更新 to view the bundled Chinese release notes. Network checks and GitHub device authorization start only after an explicit tap; no account token is bundled. The updater verifies package, increasing version, ABI, certificate, size and SHA256, then asks Android to install. Private-repository authorization and physical-phone upgrade/data preservation still need device acceptance.

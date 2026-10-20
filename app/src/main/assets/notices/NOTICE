@@ -1,0 +1,39 @@
+下一章 — Third-party notices
+
+The MIT license in LICENSE applies only to original application source and
+documentation for which h516df and contributors have the right to grant it.
+Third-party components retain their own licenses and copyright notices.
+This notice does not relicense them or grant rights to user-imported novels,
+cover artwork, other third-party content, or user data. Keep THIRD_PARTY.md.
+
+Redistributed bootstrap component
+--------------------------------
+gradlew, gradlew.bat, and gradle/wrapper/gradle-wrapper.jar are Gradle
+contributors' material under Apache License 2.0. The existing wrapper JAR is
+Gradle 4.6, SHA-256:
+381dff8aa434499aa93bc25572b049c8c586a67faff2c02f375e4f23e17e49de
+The distribution configuration separately pins Gradle 9.1.0 and its checksum.
+Preserve licenses/Gradle-4.6-LICENSE.txt, including its bundled third-party
+terms. The upstream v4.6.0 root has no separate NOTICE file.
+
+Dependencies supplied by official repositories/toolchains
+---------------------------------------------------------
+AndroidX / Jetpack Compose / Activity / Core, Kotlin, kotlinx.coroutines,
+and Android Gradle Plugin: Apache License 2.0.
+JUnit 4.13.2 (tests): Eclipse Public License 1.0.
+Robolectric 4.17 (tests): MIT, with Apache-2.0 licensed subsets.
+Roborazzi 1.76.0 (tests): Apache License 2.0.
+JSON-java 20250517 (tests): Public Domain.
+
+Sources
+-------
+https://github.com/gradle/gradle/blob/v4.6.0/LICENSE
+https://gradle.org/release-checksums/
+https://github.com/junit-team/junit4/blob/r4.13.2/LICENSE-junit.txt
+https://github.com/robolectric/robolectric/blob/robolectric-4.17/LICENSE
+https://github.com/takahirom/roborazzi/blob/1.76.0/LICENSE
+https://github.com/stleary/JSON-java/blob/20250517/LICENSE
+
+This is a source attribution inventory, not a complete compiled-APK license
+or copyright clearance. Compiled distributions must preserve the complete
+applicable licenses and notices of their resolved dependencies.
