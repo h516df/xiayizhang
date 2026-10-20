@@ -42,3 +42,12 @@ See WRITING_WORKSPACE.md for the stage contract and deferred work. TESTING.md di
 ## Version and updates
 
 On the bookshelf, open 检查更新 to view the bundled Chinese release notes. Network checks and GitHub device authorization start only after an explicit tap; no account token is bundled. The updater verifies package, increasing version, ABI, certificate, size and SHA256, then asks Android to install. Private-repository authorization and physical-phone upgrade/data preservation still need device acceptance.
+
+## Draft mature reading integration
+
+This branch integrates Readium 3.3.0's stable EPUB Navigator and Compose Rich Editor
+1.0.0 for selected plain-text edits, instead of using a read-only text field as the
+reader. Review/apply/undo and original-byte preservation remain app-owned. See
+[READING_INTEGRATION.md](READING_INTEGRATION.md) for migration, dependency decisions,
+security controls and the explicit Android WebView/IME acceptance gate. This is not a
+new released version and does not claim real-provider AI validation.
