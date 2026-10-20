@@ -8,3 +8,6 @@ local.properties
 evidence/
 *.apk
 *.png
+keystore.properties
+.env
+.env.local
