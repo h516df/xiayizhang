@@ -1,7 +1,7 @@
 plugins { id("com.android.application"); id("org.jetbrains.kotlin.plugin.compose") }
 android {
  namespace = "cn.privatereader"; compileSdk = 36
- defaultConfig { applicationId = "cn.privatereader"; minSdk = 26; targetSdk = 36; versionCode = 1; versionName = "0.1" }
+ defaultConfig { applicationId = "cn.privatereader"; minSdk = 26; targetSdk = 36; versionCode = 2; versionName = "0.2-alpha" }
  compileOptions { sourceCompatibility = JavaVersion.VERSION_21; targetCompatibility = JavaVersion.VERSION_21 }
  buildFeatures { compose = true }
  testOptions { unitTests.isReturnDefaultValues = true }

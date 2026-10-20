@@ -1,23 +1,33 @@
-# Validation record · 0.1
+# Validation record · 0.2 writing-workspace slice
 
-Validation date: 2026-10-20 UTC. Synthetic fiction only. No live AI provider or API key was used.
+2026-10-20 UTC. All writing fixtures are synthetic. No real AI provider, key, billable request or user manuscript was used.
 
-## Automated results
+## Current results
 
-- Final aggregate: testDebugUnitTest, assembleDebug and lintDebug passed together. Lint: 0 errors, 7 warnings (dependency updates and KTX suggestions).
-- 37 tests passed, 0 failed, 0 skipped: CoreTest 21, AiTest 7, EditingTest 4, ReaderUiTest 5.
-- Core: UTF-8/GB18030 import, EPUB order and inert text, immutable originals, revisions/rollback/recovery, backup hashes and exact member set, path traversal, directory payload/bomb protection, size/depth bounds, export rejecting corrupted originals.
-- AI contract: request scope and payload, strict candidate JSON parsing, HTTPS endpoint/address guards. These are offline contract tests, not successful provider requests.
-- Editing: unique-source replacement, protected phrase counts, changed-span diff, rejecting a late older draft.
-- UI: NATIVE Robolectric API 35 Compose semantics and seven screenshots; bookshelf, reader/editor, actual edit persistence with original preserved, AI workbench cancel without writes, draft retained on reopening and round-trip to secure connection settings, settings/import.
-- Environment: JDK 21, Gradle 9.1.0, AGP 9.0.1, SDK 36; Compose BOM 2026.03.01, Robolectric 4.17, Roborazzi 1.76.0. UI viewport Chinese locale, 393×852 dp, xhdpi.
+- Production compilation passed. Focused new model tests: 11 passed. Focused Compose interaction tests: 10 passed.
+- One stable aggregate run of testDebugUnitTest, assembleDebug and lintDebug succeeded: 53 tests, zero failures/errors/skips (Core 21, AI 7, legacy Editing 4, StoryModel 11, ReaderUi 10).
+- Lint: zero errors, six warnings (dependency versions and KTX suggestions). Debug APK built locally only; not included in source publication.
+- After the aggregate, the screenshot harness alone was changed to advance a Compose frame and synchronize before capture, avoiding an image one frame behind the click. Its ten UI tests were rerun separately and all passed; production code was unchanged. Screenshots stay local.
 
-## Investigated regression
+## What the new checks establish
 
-The original long scrolling rewrite AlertDialog failed host idle synchronization immediately after opening. It reproduced with API 34 automatic/manual clocks and API 35 isolated NATIVE and LEGACY runs. The original logs are retained locally, not uploaded with source. The production interface was redesigned as a full-screen workbench with a scrollable form and fixed actions. The same cancel/no-write assertions pass; no assertion was removed and no arbitrary sleep was used to mask this failure.
+- Exact repeated-phrase offsets, Unicode-boundary protection, protected-phrase checks, stale revision rejection and safe one-step undo.
+- Atomic storage reload before adoption; automatic recovery and explicit rollback use a new epoch so old candidate/source anchors cannot revive.
+- Stable entity IDs, same-name characters, scene associations, relationships and source anchors survive backup/restore. Baseline version-1 JSON without the new fields still loads deterministically, retaining legacy facts without guessed extraction.
+- Request snapshots default to selection/instruction only. Explicit current-scene cards and relations include IDs. Unselected character notes, future-scene material and legacy facts remain absent; no relationship traversal. Duplicate/oversized scene-reference lists are rejected.
+- Actual Compose selection → own edit → save → reading → undo, cancellation without writes, unconfigured AI without pretend generation, synthetic candidate review/adoption, failure with retained instruction and retry, stale candidate rejection, reference/outline creation and editing, and reading scroll preservation after cancelling.
+- Independent read-only incremental security review identified and rechecked fixes for five issues: ambiguous same-name payloads, whole-text saved-state bloat, recovered anchor reuse, repeated scene-reference cost, and editing during reference-save. No remaining explicit blocker was reported within that review's scope.
 
-## Not established by these results
+## Limits
 
-These are host-rendered Android UI tests, not a physical phone or emulator session. System file pickers, Android Keystore behavior on hardware, keyboard/IME, process recreation, accessibility/large-font/small-screen behavior, low disk/memory, and the full device acceptance checklist remain unverified. Real provider compatibility, billing, latency and generation quality are unverified. The JSON input guard bounds depth and structure but is not a full strict grammar parser. DNS checks and connection resolution are separate, not a guarantee against DNS rebinding.
+These are native host-rendered Robolectric API 35/Compose checks, not physical phone or emulator acceptance. Selection handles/IME on hardware, Android Keystore, system pickers, process death, large fonts/small screens, low storage/memory and production provider compatibility remain unverified. AI candidates are synthetic injected test results, not a demonstration of model quality. Provider JSON mode, billing, latency, continuity and output quality are unverified.
 
-Follow ACCEPTANCE.md on the intended Android phone before entrusting unique manuscripts to this prototype. Keep exported backups outside the app.
+Multi-block partial adoption, persisted candidate sessions, structured editable presets, typed continuation/summary, scene splitting and character-card/worldbook import are not included in this slice. Current diff is a changed envelope, not a multi-hunk algorithm.
+
+Environment: JDK 21, Gradle 9.1.0, AGP 9.0.1, SDK 36, Compose BOM 2026.03.01, Robolectric 4.17 and Roborazzi 1.76.0. UI fixture viewport: Chinese locale, 393×852 dp, xhdpi. The JSON storage guard bounds depth/structure but is not a complete strict grammar; the provider response parser is stricter. Existing DNS checking and connection resolution remain separate and are not a full rebinding guarantee.
+
+## Earlier baseline
+
+The 0.1 reader baseline had 37 tests and APK/lint checks. Its whole-chapter editing/AI-form UI has been replaced, so those old workflow screenshots are not evidence of this increment. Import, immutable originals, safe backups, history, provider parsing and address-policy regression tests remain covered in the current 53-test aggregate.
+
+Follow ACCEPTANCE.md on the intended phone before entrusting unique manuscripts to the prototype. Keep backups outside the app.

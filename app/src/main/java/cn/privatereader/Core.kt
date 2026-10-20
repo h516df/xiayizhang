@@ -17,7 +17,7 @@ import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 import javax.xml.parsers.DocumentBuilderFactory
 
-data class Chapter(val title: String, val text: String)
+data class Chapter(val title: String, val text: String, val id:String=newId(), val revision:Long=0, val scene:Scene=Scene(), val epoch:String=newId())
 data class BookSummary(val id: String, val title: String, val chapterCount: Int, val preview: String)
 data class Book(
     val id: String,
@@ -26,7 +26,9 @@ data class Book(
     val style: String = "",
     val facts: String = "",
     val buttons: List<String> = listOf("润色", "续写", "总结"),
-    val protectedText: List<String> = emptyList()
+    val protectedText: List<String> = emptyList(),
+    val cards:List<StoryCard> = emptyList(),
+    val relations:List<StoryRelation> = emptyList()
 )
 
 /** Offline-only storage. Each source is immutable; revisions contain working text only. */
@@ -80,7 +82,9 @@ class Store(private val root: File) {
             }.getOrNull()
             notice = "工作稿和历史版本无法读取，已从原稿恢复；修改内容及偏好未能恢复。原损坏文件已保留。"
         }
-        val restored = recovered ?: throw IllegalStateException("书籍 $id 损坏且无可用恢复副本，请从本地备份恢复。原文件未删除。", current.exceptionOrNull())
+        val recoveredBook = recovered ?: throw IllegalStateException("书籍 $id 损坏且无可用恢复副本，请从本地备份恢复。原文件未删除。", current.exceptionOrNull())
+        // Recovery is a new version epoch: old candidate/source anchors never become valid again.
+        val restored = recoveredBook.copy(chapters=recoveredBook.chapters.map{it.copy(epoch=newId())})
         // Preserve forensic evidence before replacing a damaged working copy. Never modify source.bin.
         if (file.exists()) {
             val corrupt = File(dir, "book.corrupt-${System.currentTimeMillis()}-${UUID.randomUUID()}.json")
@@ -90,7 +94,16 @@ class Store(private val root: File) {
         atomicWrite(File(dir, "recovery.txt"), notice.toByteArray(Charsets.UTF_8))
         return restored
     }
-    @Synchronized fun save(book: Book): Book {
+    @Synchronized fun save(input: Book, freshEpoch:Boolean=false): Book {
+        val previous = load(input.id)
+        val previousChapters=previous?.chapters?.associateBy{it.id}.orEmpty()
+        val book=input.copy(chapters=input.chapters.map { c ->
+            val old=previousChapters[c.id]
+            if(old!=null) {
+                require(old.revision<Long.MAX_VALUE || old.text==c.text){"版本号已到上限"}
+                c.copy(revision=maxOf(c.revision,old.revision+if(old.text!=c.text)1 else 0),epoch=if(freshEpoch)newId()else old.epoch)
+            } else if(freshEpoch)c.copy(epoch=newId())else c
+        })
         validate(book)
         val dir = folder(book.id)
         require(File(dir, "source.bin").isFile) { "原稿不存在，请先导入书籍" }
@@ -114,13 +127,24 @@ class Store(private val root: File) {
         atomicWrite(target, bytes)
         return book
     }
+    @Synchronized fun editSelection(id:String, anchor:SourceAnchor, candidate:String):Book {
+        val current=load(id)?:error("书籍不存在")
+        val chapter=current.chapters.find{it.id==anchor.chapterId}?:error("章节已不存在")
+        val edited=applyAnchoredEdit(chapter,anchor,candidate,current.protectedText)
+        return save(current.copy(chapters=current.chapters.map{if(it.id==edited.id)edited else it}))
+    }
+    @Synchronized fun undoSelection(id:String,before:Chapter,after:Chapter):Book {
+        val current=load(id)?:error("书籍不存在")
+        require(current.chapters.find{it.id==after.id}==after){"正文已变化，请使用历史恢复"}
+        return save(current.copy(chapters=current.chapters.map{if(it.id==after.id)it.copy(text=before.text,revision=after.revision+1)else it}))
+    }
     @Synchronized fun revisions(id: String): List<String> = File(folder(id), "revisions").listFiles().orEmpty()
         .filter { it.isFile && it.name.endsWith(".json") }.map { it.name }.sortedDescending()
     @Synchronized fun rollback(id: String, revision: String): Book {
         require(Regex("[A-Za-z0-9_-]+\\.json").matches(revision)) { "无效版本" }
         val book = decode(readBounded(File(folder(id), "revisions/$revision"), MAX_FILE))
         require(book.id == id)
-        return save(book)
+        return save(book,freshEpoch=true)
     }
     @Synchronized fun importBook(name: String, bytes: ByteArray): Book {
         require(bytes.isNotEmpty() && bytes.size <= MAX_FILE) { "文件不能为空，且不能超过 20 MB" }
@@ -212,6 +236,7 @@ class Store(private val root: File) {
         } finally { if (staging.exists()) staging.deleteRecursively() }
     }
     private fun validate(book: Book) {
+        StoryJson.validate(book)
         require(safeId.matches(book.id) && book.title.length <= 500 && book.chapters.isNotEmpty() && book.chapters.size <= 5000)
         require(book.chapters.all { it.title.length <= 500 && it.text.length <= CHAPTER_SIZE }) { "单章最多 12000 字符" }
         require(book.protectedText.size <= 1000 && book.protectedText.all { it.length <= CHAPTER_SIZE })
@@ -222,7 +247,8 @@ class Store(private val root: File) {
         return JSONObject().put("version", 1).put("id", book.id).put("title", book.title)
             .put("style", book.style).put("facts", book.facts).put("buttons", JSONArray(book.buttons))
             .put("protectedText", JSONArray(book.protectedText))
-            .put("chapters", JSONArray(book.chapters.map { JSONObject().put("title", it.title).put("text", it.text) }))
+            .put("cards",StoryJson.cards(book.cards)).put("relations",StoryJson.relations(book.relations))
+            .put("chapters", JSONArray(book.chapters.map { JSONObject().put("title", it.title).put("text", it.text).put("id",it.id).put("revision",it.revision).put("sceneId",it.scene.id).put("sceneTitle",it.scene.title).put("epoch",it.epoch) }))
             .toString().toByteArray(Charsets.UTF_8)
     }
     private fun decode(bytes: ByteArray): Book {
@@ -230,12 +256,13 @@ class Store(private val root: File) {
         val json = parseJson(bytes)
         require(json.getInt("version") == 1) { "不支持的书籍版本" }
         val chapters = json.getJSONArray("chapters")
+        require(chapters.length() in 1..5000)
         val buttons = json.optJSONArray("buttons") ?: JSONArray()
         val protectedText = json.optJSONArray("protectedText") ?: JSONArray()
         return Book(json.getString("id"), json.getString("title"), (0 until chapters.length()).map {
-            chapters.getJSONObject(it).let { c -> Chapter(c.getString("title"), c.getString("text")) }
+            chapters.getJSONObject(it).let { c -> Chapter(c.getString("title"), c.getString("text"), c.optString("id").ifBlank { "chapter-$it" }, c.optLong("revision",0), Scene(c.optString("sceneId").ifBlank { "scene-$it" }, c.optString("sceneTitle","本章场景")),c.optString("epoch").ifBlank{"legacy"}) }
         }, json.optString("style"), json.optString("facts"), (0 until buttons.length()).map { buttons.getString(it) },
-            (0 until protectedText.length()).map { protectedText.getString(it) }).also(::validate)
+            (0 until protectedText.length()).map { protectedText.getString(it) }, StoryJson.cards(json.optJSONArray("cards")), StoryJson.relations(json.optJSONArray("relations"))).also(::validate)
     }
     /** Bound recursive JSON parsing before org.json sees any untrusted bytes. */
     private fun parseJson(bytes: ByteArray): JSONObject {
