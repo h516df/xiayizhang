@@ -2,8 +2,10 @@
 
 This is an integration change, not a version bump, APK release, or real-device acceptance.
 Baseline: released 0.3 commit `3634dc0195f8e06afa4d8a5fa2e12e42c7b5d305`.
-The reused local source index was verified as tree `356e5141e908ec58191c0865ff9b7d453dd4c6d3`,
-the exact release-source tree. No user books, provider keys, signing files, or images belong in this PR.
+The reused local source index was verified as candidate tree `356e5141e908ec58191c0865ff9b7d453dd4c6d3`.
+Remote PR readback revealed that the final release commit additionally updated RELEASE.md
+with cloud verification notes. Those notes are preserved unchanged; the candidate tree
+is not claimed to be the complete final release documentation tree. No user books, provider keys, signing files, or images belong in this PR.
 
 ## Decision and scope
 
