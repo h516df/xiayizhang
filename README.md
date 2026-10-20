@@ -2,7 +2,7 @@
 
 A local-first personal novel and text reader/editor. This is a private prototype, not a store-published or stable release. All sample fiction is original synthetic text.
 
-## Selection-first writing slice
+## Selection-first writing and local references
 
 - Import UTF-8 / GB18030 TXT, DRM-free EPUB, plain HTML, or pasted/shared text.
 - Local bookshelf, chapter navigation, adjustable text size, reading-position persistence.
@@ -13,6 +13,7 @@ A local-first personal novel and text reader/editor. This is a private prototype
 - Recovery from a damaged working file uses newest valid history or hash-verified original, preserving the damaged file and showing a recovery notice.
 - Three real entry points: text, outline, and reference material. Manually create/edit characters, places, outline cards, scene associations and directed/bidirectional relationships. Stable IDs distinguish duplicate names. Legacy facts/style are retained without guessed migration.
 - HTTPS OpenAI-compatible chat-completions adapter: short rewrite presets/intensity, explicit selection and opt-in current-scene material preview, 2–3 candidates, source/candidate/difference tabs, manual adoption only. Exact offsets + chapter ID + revision + recovery epoch prevent wrong-instance or stale replacement. Protected-phrase enforcement stays local.
+- Preview and import V2/V3 character-card and worldbook JSON as immutable local reference snapshots. Explicit scene bindings and individual AI-context selection; external scripts/prompts are never executed. See REFERENCE_IMPORT.md for limits.
 - API key encrypted with Android Keystore AES-GCM, excluded from OS backup and app exports. No bundled key, default provider, telemetry, cloud sync, public sharing, or automatic book rewriting.
 
 ## What is intentionally limited

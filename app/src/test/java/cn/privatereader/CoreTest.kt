@@ -53,7 +53,7 @@ class CoreTest {
         store.save(edited)
         val restored = store.importBackup(store.exportBackup(original.id))
         assertNotEquals(original.id, restored.id)
-        assertEquals(edited.copy(id = restored.id), restored)
+        assertEquals(edited.copy(id = restored.id,workspaceId=restored.workspaceId), restored)
         assertEquals(edited, store.load(original.id))
         assertArrayEquals(text("原文"), store.originalBytes(restored.id))
         assertEquals(1, store.revisions(restored.id).size)

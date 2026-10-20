@@ -2,7 +2,14 @@
 
 2026-10-20 UTC. All writing fixtures are synthetic. No real AI provider, key, billable request or user manuscript was used.
 
-## Current results
+## Reference import increment (stage 2b)
+
+- Focused run: 22 new tests passed (ReferenceImport 12, ReferenceBindings 6, ReferenceImportUi 4), with zero failures/errors. Native screenshots of preview and explicit context picker were inspected locally.
+- Independent incremental review identified loose restore-field coercion and an unbounded imported-source title. Both are fixed and statically rechecked; an additional malformed-backup regression passed in the aggregate.
+- One stable aggregate testDebugUnitTest + assembleDebug + lintDebug succeeded: 76 tests, zero failures/errors/skips (the original 53 plus parser 12, bindings 7, import UI 4). Debug APK built locally; lint has zero errors and nine dependency-version/KTX suggestion warnings.
+- The updated native reader toolbar and green selected preset/intensity chips were also visually inspected. No physical-device or real-provider acceptance is claimed. The 53-test record below is retained as the earlier stage-2a checkpoint.
+
+## Stage 2a results
 
 - Production compilation passed. Focused new model tests: 11 passed. Focused Compose interaction tests: 10 passed.
 - One stable aggregate run of testDebugUnitTest, assembleDebug and lintDebug succeeded: 53 tests, zero failures/errors/skips (Core 21, AI 7, legacy Editing 4, StoryModel 11, ReaderUi 10).
@@ -22,7 +29,7 @@
 
 These are native host-rendered Robolectric API 35/Compose checks, not physical phone or emulator acceptance. Selection handles/IME on hardware, Android Keystore, system pickers, process death, large fonts/small screens, low storage/memory and production provider compatibility remain unverified. AI candidates are synthetic injected test results, not a demonstration of model quality. Provider JSON mode, billing, latency, continuity and output quality are unverified.
 
-Multi-block partial adoption, persisted candidate sessions, structured editable presets, typed continuation/summary, scene splitting and character-card/worldbook import are not included in this slice. Current diff is a changed envelope, not a multi-hunk algorithm.
+Multi-block partial adoption, persisted candidate sessions, structured editable presets, typed continuation/summary, scene splitting and PNG/CHARX card import are not included. Basic character/worldbook JSON import is covered by the separate stage-2b checks above. Current diff is a changed envelope, not a multi-hunk algorithm.
 
 Environment: JDK 21, Gradle 9.1.0, AGP 9.0.1, SDK 36, Compose BOM 2026.03.01, Robolectric 4.17 and Roborazzi 1.76.0. UI fixture viewport: Chinese locale, 393×852 dp, xhdpi. The JSON storage guard bounds depth/structure but is not a complete strict grammar; the provider response parser is stricter. Existing DNS checking and connection resolution remain separate and are not a full rebinding guarantee.
 

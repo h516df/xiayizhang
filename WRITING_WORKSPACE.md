@@ -1,4 +1,4 @@
-# Writing workspace, stage 2a
+# Writing workspace, stages 2a–2b
 
 This increment replaces the chapter-copy AI form with a selection-first writing workflow. It is not the completed writing product.
 
@@ -12,6 +12,10 @@ This increment replaces the chapter-copy AI form with a selection-first writing 
 - AI offers three rewrite presets, intensity, and optional free instruction. Only selection plus visible instruction is sent by default. Current-scene cards, relationships, nearby context, and legacy facts/style are opt-in and previewed. Nothing recursively includes the entire book or future scenes.
 - Candidate views switch between source / candidate / changed envelope for a phone-width layout. Explicit adoption only. Unconfigured services never generate fake candidates. Test fixtures are injected only by tests.
 - Version-1 backup envelope remains compatible; missing chapter and scene IDs are deterministic on legacy decode. Legacy facts/style remain unstructured, labelled 原有设定. Provider settings and keys stay outside book data/backups.
+
+## Local reference increment
+
+Stage 2b adds bounded character/worldbook JSON preview, immutable local snapshots, explicit scene bindings and individual opt-in AI context. It also replaces the cramped reader toolbar with a complete 更多 menu and aligns selected chips with the ink-green theme. See REFERENCE_IMPORT.md; this is basic data import, not full Tavern runtime compatibility.
 
 ## Next increments, not claimed as done
 

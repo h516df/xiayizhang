@@ -1,6 +1,9 @@
 package cn.privatereader
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.provider.OpenableColumns
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -28,6 +31,7 @@ import kotlinx.coroutines.*
  val chapter=book.chapters[index.coerceIn(book.chapters.indices)]
  var tab by rememberSaveable(book.id){mutableIntStateOf(0)}
  var toc by remember{mutableStateOf(false)}
+ var readerMenu by remember{mutableStateOf(false)}
  var selectionStart by rememberSaveable(chapter.id,chapter.revision,chapter.epoch){mutableIntStateOf(0)}
  var selectionEnd by rememberSaveable(chapter.id,chapter.revision,chapter.epoch){mutableIntStateOf(0)}
  val value=TextFieldValue(chapter.text,TextRange(selectionStart.coerceIn(0,chapter.text.length),selectionEnd.coerceIn(0,chapter.text.length)))
@@ -43,8 +47,17 @@ import kotlinx.coroutines.*
  var undo by remember{mutableStateOf<Pair<Chapter,Chapter>?>(null)}
  var cardEditor by remember{mutableStateOf<StoryCard?>(null)}
  var relationEditor by remember{mutableStateOf<StoryRelation?>(null)}
+ var pendingImport by remember{mutableStateOf<ImportedResource?>(null)}
+ var referenceDetail by remember{mutableStateOf<ImportedResource?>(null)}
+ var bindingEditor by remember{mutableStateOf<ReferenceBinding?>(null)}
  val scope=rememberCoroutineScope()
  fun save(next:Book,done:(Book)->Unit={}) {if(saving)return;saving=true;scope.launch{try{val saved=withContext(Dispatchers.IO){store.save(next)};onSaved(saved);done(saved)}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message?:"保存失败，内容仍保留"}finally{saving=false}}}
+ val importReferenceFile=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->if(uri!=null&&!saving){saving=true;scope.launch{try{pendingImport=withContext(Dispatchers.IO){
+  var name="资料.json"
+  context.contentResolver.query(uri,arrayOf(OpenableColumns.DISPLAY_NAME),null,null,null)?.use{if(it.moveToFirst())name=it.getString(0)}
+  val bytes=context.contentResolver.openInputStream(uri)?.use{input->val out=java.io.ByteArrayOutputStream();val buffer=ByteArray(8192);while(true){val n=input.read(buffer);if(n<0)break;require(out.size()+n<=4*1024*1024){"JSON 资料最多 4 MiB，未截断导入"};out.write(buffer,0,n)};out.toByteArray()}?:error("无法读取资料")
+  parseReference(name,bytes)
+ }}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message?:"导入失败，未写入资料"}finally{saving=false}}}}
  fun apply(a:SourceAnchor,text:String) {
   if(saving)return
   val before=book.chapters.find{it.id==a.chapterId}?:return
@@ -56,7 +69,17 @@ import kotlinx.coroutines.*
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly){listOf("正文","大纲","资料").forEachIndexed{i,label->TextButton(onClick={tab=i},enabled=!saving){Text(if(tab==i)"● $label" else label)}}}
   if(saving)LinearProgressIndicator(Modifier.fillMaxWidth())
   if(tab==0){
-   Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=16.dp)){TextButton(enabled=!saving,onClick={toc=true}){Text("目录")};TextButton(enabled=!saving,onClick=onFont){Text("字 ${font.toInt()}")};TextButton(enabled=index>0&&!saving,onClick={onChapter(index-1)}){Text("上一章")};Text("${index+1}/${book.chapters.size}",Modifier.padding(12.dp));TextButton(enabled=index<book.chapters.lastIndex&&!saving,onClick={onChapter(index+1)}){Text("下一章")};TextButton(onClick=onHistory,enabled=!saving){Text("历史")};TextButton(onClick=onBackup,enabled=!saving){Text("备份")}}
+   Row(Modifier.fillMaxWidth().padding(horizontal=16.dp),horizontalArrangement=Arrangement.SpaceBetween){
+    TextButton(enabled=!saving,onClick={toc=true}){Text("目录 · ${index+1}/${book.chapters.size}")}
+    TextButton(enabled=!saving,onClick=onFont){Text("字 ${font.toInt()}")}
+    Box{TextButton(enabled=!saving,onClick={readerMenu=true}){Text("更多")};DropdownMenu(expanded=readerMenu,onDismissRequest={readerMenu=false}){
+     DropdownMenuItem(text={Text("上一章")},enabled=index>0,onClick={readerMenu=false;onChapter(index-1)})
+     DropdownMenuItem(text={Text("下一章")},enabled=index<book.chapters.lastIndex,onClick={readerMenu=false;onChapter(index+1)})
+     DropdownMenuItem(text={Text("历史")},onClick={readerMenu=false;onHistory()})
+     DropdownMenuItem(text={Text("备份")},onClick={readerMenu=false;onBackup()})
+    }}
+   }
+
    Column(Modifier.weight(1f).testTag("reader-scroll").verticalScroll(scroll).padding(horizontal=24.dp)){
     Text(chapter.title,fontSize=26.sp,modifier=Modifier.padding(vertical=14.dp))
     Text("长按正文选中，再选择自己改或 AI 改",fontSize=12.sp,color=MaterialTheme.colorScheme.secondary,modifier=Modifier.padding(bottom=16.dp))
@@ -77,8 +100,12 @@ import kotlinx.coroutines.*
     Text("当前场景：${chapter.title} · ${chapter.scene.title}",fontSize=13.sp)
     Text("资料按稳定编号关联，同名可以并存。修改正文不会自动改动资料。",fontSize=12.sp)
     Row(Modifier.horizontalScroll(rememberScrollState())){(if(outline)listOf(CardKind.OUTLINE)else listOf(CardKind.CHARACTER,CardKind.PLACE)).forEach{k->OutlinedButton(enabled=!saving,onClick={cardEditor=StoryCard(kind=k,name="",sceneIds=listOf(chapter.scene.id))}){Text("新增${k.label}")}}}
-    book.cards.filter{(it.kind==CardKind.OUTLINE)==outline}.forEach{card->OutlinedCard(onClick={cardEditor=card},modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(14.dp)){Text("${card.kind.label} · ${card.name} · ${card.id.take(6)}");Text(card.notes,maxLines=3);Text(if(chapter.scene.id in card.sceneIds)"已关联当前场景"else"未关联当前场景",fontSize=12.sp);card.source?.let{a->Text(if(book.chapters.any{a.matches(it)})"来自正文选区"else"来源版本已变化，锚点失效",fontSize=12.sp)}}}}
+    book.cards.filter{(it.kind==CardKind.OUTLINE)==outline}.forEach{card->OutlinedCard(onClick={cardEditor=card},modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(14.dp)){Text("${card.kind.label} · ${card.name} · ${card.id.take(6)}");Text(card.notes,maxLines=3);Text(if(chapter.scene.id in card.sceneIds)"已关联当前场景"else"未关联当前场景",fontSize=12.sp);card.referenceId?.let{rid->Text("来自导入资料：${referenceTitle(book.resources.find{it.id==rid}?.title.orEmpty())}",fontSize=12.sp)};card.source?.let{a->Text(if(book.chapters.any{a.matches(it)})"来自正文选区"else"来源版本已变化，锚点失效",fontSize=12.sp)}}}}
     if(!outline){
+     Text("导入的角色卡 / 世界书",fontSize=20.sp)
+     Text("本地资料工作区 · ${book.workspaceId.take(8)}\nJSON 基础资料导入；当前不支持 PNG 卡、CHARX 或脚本运行。",fontSize=12.sp)
+     OutlinedButton(enabled=!saving,onClick={importReferenceFile.launch(arrayOf("application/json","text/plain"))}){Text("导入 JSON 资料")}
+     book.resources.forEach{r->OutlinedCard(onClick={referenceDetail=r},modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(12.dp)){Text("${referenceTitle(r.title)} · ${r.id.take(6)}");Text("${r.format} · ${r.entries.size} 条目 · "+if(book.bindings.any{it.resourceId==r.id&&it.enabled&&chapter.scene.id in it.sceneIds})"关联当前场景"else"当前场景不启用",fontSize=12.sp)}}}
      Text("人物关系",fontSize=20.sp)
      val people=book.cards.filter{it.kind==CardKind.CHARACTER}
      OutlinedButton(enabled=people.size>=2&&!saving,onClick={relationEditor=StoryRelation(fromId=people[0].id,toId=people[1].id,label="",sceneIds=listOf(chapter.scene.id))}){Text("新增关系")}
@@ -93,10 +120,13 @@ import kotlinx.coroutines.*
  anchor?.let{a->if(mode=="self")SelfEditPanel(a,saving,{mode=""},{apply(a,it)}) else if(mode=="ai")SelectionAiPanel(book,chapter,a,gateway,saving,{mode=""},onSettings){apply(a,it)}}
  cardEditor?.let{card->CardEditor(card,book,saving,{cardEditor=null}){edited->save(book.copy(cards=if(book.cards.any{it.id==edited.id})book.cards.map{if(it.id==edited.id)edited else it}else book.cards+edited)){cardEditor=null}}}
  relationEditor?.let{r->RelationEditor(r,book,saving,{relationEditor=null}){edited->save(book.copy(relations=if(book.relations.any{it.id==edited.id})book.relations.map{if(it.id==edited.id)edited else it}else book.relations+edited)){relationEditor=null}}}
+ pendingImport?.let{r->ReferenceImportPreview(r,book,chapter.title,saving,{pendingImport=null}){if(!saving){saving=true;scope.launch{try{val saved=withContext(Dispatchers.IO){store.importReference(book.id,book.workspaceId,chapter.scene.id,r)};onSaved(saved);pendingImport=null}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message?:"未保存导入"}finally{saving=false}}}}}
+ referenceDetail?.let{r->val binding=book.bindings.find{it.resourceId==r.id};ReferenceDetails(r,binding,saving,{referenceDetail=null},{bindingEditor=binding;referenceDetail=null}){kind,name,notes->if(name.length>200||notes.length>Store.CHAPTER_SIZE){error="此条目太长，不能整条复制为资料草稿。导入原文已完整保留；请手工选择需要的内容。"}else{cardEditor=StoryCard(kind=kind,name=name,notes=notes,sceneIds=binding?.sceneIds.orEmpty(),referenceId=r.id);referenceDetail=null}}}
+ bindingEditor?.let{binding->ReferenceBindingEditor(binding,book,saving,{bindingEditor=null}){edited->save(book.copy(bindings=book.bindings.map{if(it.id==edited.id)edited else it})){bindingEditor=null}}}
  if(error.isNotBlank())AlertDialog(onDismissRequest={error=""},title={Text("未完成操作")},text={Text(error)},confirmButton={TextButton(onClick={error=""}){Text("知道了")}})
 }
 private fun TextFieldValue.selectedText()=text.substring(selection.min,selection.max)
-@Composable private fun EditorFrame(title:String,close:()->Unit,locked:Boolean=false,content:@Composable ColumnScope.()->Unit){
+@Composable internal fun EditorFrame(title:String,close:()->Unit,locked:Boolean=false,content:@Composable ColumnScope.()->Unit){
  Dialog(onDismissRequest={if(!locked)close()},properties=DialogProperties(usePlatformDefaultWidth=false,dismissOnBackPress=!locked,dismissOnClickOutside=false)){
   Surface(Modifier.fillMaxSize()){Column(Modifier.safeDrawingPadding().imePadding().padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(title,fontSize=23.sp);TextButton(enabled=!locked,onClick=close){Text("取消 · 返回阅读")}};content()}}
  }
@@ -129,14 +159,14 @@ private fun TextFieldValue.selectedText()=text.substring(selection.min,selection
 @Composable private fun SelectionAiPanel(book:Book,chapter:Chapter,anchor:SourceAnchor,gateway:WritingAi,saving:Boolean,close:()->Unit,connect:()->Unit,apply:(String)->Unit){
  var preset by rememberSaveable{mutableStateOf("润色，保留原意")};var strength by rememberSaveable{mutableStateOf("轻")};var more by rememberSaveable{mutableStateOf(false)}
  var contextIncluded by rememberSaveable{mutableStateOf(false)};var legacy by rememberSaveable{mutableStateOf(false)}
- var included by remember{mutableStateOf(setOf<String>())};var includedRelations by remember{mutableStateOf(setOf<String>())}
+ var included by remember{mutableStateOf(setOf<String>())};var includedRelations by remember{mutableStateOf(setOf<String>())};var includedReferences by remember{mutableStateOf(setOf<String>())};var referencePicker by remember{mutableStateOf(false)}
  var choices by remember{mutableStateOf<List<String>>(emptyList())};var selected by remember{mutableIntStateOf(0)};var view by remember{mutableIntStateOf(1)}
  var running by remember{mutableStateOf(false)};var error by remember{mutableStateOf("")};var config by remember{mutableStateOf<ProviderConfig?>(null)};var configured by remember{mutableStateOf(false)}
  val scope=rememberCoroutineScope();var job by remember{mutableStateOf<Job?>(null)}
  LaunchedEffect(Unit){try{config=withContext(Dispatchers.IO){gateway.provider()};configured=config!=null}catch(e:CancellationException){throw e}catch(e:Exception){error="无法读取服务设置；未发送正文"}}
  val cards=book.cards.filter{chapter.scene.id in it.sceneIds}
  val relations=book.relations.filter{chapter.scene.id in it.sceneIds}
- val request=selectionRequest(book,chapter,anchor,preset,strength,included,includedRelations,contextIncluded,legacy)
+ val request=selectionRequest(book,chapter,anchor,preset,strength,included,includedRelations,contextIncluded,legacy,includedReferences)
  val facts=request.facts
  val style=request.style
  val size=listOf(request.passage,request.style,request.facts,request.instruction).sumOf{it.length}
@@ -152,12 +182,14 @@ private fun TextFieldValue.selectedText()=text.substring(selection.min,selection
      Text("只列出当前场景关联资料，默认不发送；勾选后可移除。",fontSize=12.sp)
      cards.forEach{c->Row{Checkbox(c.id in included,{checked->included=if(checked)included+c.id else included-c.id},enabled=!running);Text("${c.kind.label}：${c.name} · ${c.id.take(6)}",Modifier.padding(top=12.dp))}}
      relations.forEach{r->Row{Checkbox(r.id in includedRelations,{checked->includedRelations=if(checked)includedRelations+r.id else includedRelations-r.id},enabled=!running);Text("关系：${book.cards.find{it.id==r.fromId}?.name} ${if(r.directed)"→"else"↔"} ${book.cards.find{it.id==r.toId}?.name}：${r.label}",Modifier.padding(top=12.dp))}}
+     TextButton(enabled=!running,onClick={referencePicker=true}){Text("选择导入资料（已选 ${includedReferences.size}）")}
      Row{Checkbox(contextIncluded,{contextIncluded=it},enabled=!running);Text("附带前后各最多 300 字上下文",Modifier.padding(top=12.dp))}
      Row{Checkbox(legacy,{legacy=it},enabled=!running);Text("附带原有风格与事实设定",Modifier.padding(top=12.dp))}
     }
     Text("发送预览",fontSize=16.sp)
     Text(anchor.source,modifier=Modifier.fillMaxWidth().heightIn(max=180.dp).verticalScroll(rememberScrollState()).padding(10.dp),fontSize=14.sp)
-    if(facts.isNotBlank()||style.isNotBlank())Text("风格：${style.ifBlank{"无"}}\n资料：${facts.ifBlank{"无"}}",modifier=Modifier.heightIn(max=160.dp).verticalScroll(rememberScrollState()),fontSize=12.sp)
+    if(facts.length>12000)Text("所选资料已超过发送上限；请移除部分条目，未截断也不会发送。",color=MaterialTheme.colorScheme.error)
+    else if(facts.isNotBlank()||style.isNotBlank())Text("风格：${style.ifBlank{"无"}}\n资料：${facts.ifBlank{"无"}}",modifier=Modifier.heightIn(max=160.dp).verticalScroll(rememberScrollState()),fontSize=12.sp)
     Text("指令：${request.instruction}\n共 $size / 12000 字符",fontSize=12.sp)
     Text(if(configured)"发送至 ${config?.endpoint}\n模型 ${config?.model}；服务可能收费。"else"尚未配置服务，不能生成。阅读和自己修改不受影响。",fontSize=12.sp)
    }else{
@@ -179,4 +211,6 @@ private fun TextFieldValue.selectedText()=text.substring(selection.min,selection
    }){Text("确认发送")}
   }
  }
+ if(referencePicker)ReferenceContextPicker(referenceContextParts(book,chapter.scene.id),includedReferences,{includedReferences=it},{referencePicker=false})
+
 }

@@ -28,7 +28,10 @@ data class Book(
     val buttons: List<String> = listOf("润色", "续写", "总结"),
     val protectedText: List<String> = emptyList(),
     val cards:List<StoryCard> = emptyList(),
-    val relations:List<StoryRelation> = emptyList()
+    val relations:List<StoryRelation> = emptyList(),
+    val workspaceId:String=newId(),
+    val resources:List<ImportedResource> = emptyList(),
+    val bindings:List<ReferenceBinding> = emptyList()
 )
 
 /** Offline-only storage. Each source is immutable; revisions contain working text only. */
@@ -127,6 +130,13 @@ class Store(private val root: File) {
         atomicWrite(target, bytes)
         return book
     }
+    @Synchronized fun importReference(bookId:String,workspaceId:String,sceneId:String,resource:ImportedResource):Book {
+        val current=load(bookId)?:error("书籍不存在")
+        require(current.workspaceId==workspaceId){"工作区已变化，请重新导入"}
+        require(current.chapters.any{it.scene.id==sceneId}){"场景已变化，请重新选择"}
+        require(current.resources.none{it.id==resource.id}){"这次导入已经保存，请勿重复确认"}
+        return save(current.copy(resources=current.resources+resource,bindings=current.bindings+ReferenceBinding(resourceId=resource.id,sceneIds=listOf(sceneId))))
+    }
     @Synchronized fun editSelection(id:String, anchor:SourceAnchor, candidate:String):Book {
         val current=load(id)?:error("书籍不存在")
         val chapter=current.chapters.find{it.id==anchor.chapterId}?:error("章节已不存在")
@@ -205,9 +215,9 @@ class Store(private val root: File) {
         require(metadata.getString("sha256") == sha(original)) { "原稿校验失败" }
         val old = decode(entries["book.json"] ?: error("备份缺少工作稿"))
         // Restore as a new independent book: never overwrite an existing original.
-        val book = old.copy(id = UUID.randomUUID().toString())
+        val book = old.copy(id = UUID.randomUUID().toString(),workspaceId=newId())
         val history = entries.filterKeys { it.startsWith("revisions/") }.mapValues { (_, data) ->
-            val rev = decode(data); require(rev.id == old.id); encode(rev.copy(id = book.id))
+            val rev = decode(data); require(rev.id == old.id); encode(rev.copy(id = book.id,workspaceId=book.workspaceId))
         }
         require(history.size <= 50)
         history.keys.forEach { require(Regex("revisions/[A-Za-z0-9_-]+\\.json").matches(it)) }
@@ -237,6 +247,7 @@ class Store(private val root: File) {
     }
     private fun validate(book: Book) {
         StoryJson.validate(book)
+        validateReferences(book)
         require(safeId.matches(book.id) && book.title.length <= 500 && book.chapters.isNotEmpty() && book.chapters.size <= 5000)
         require(book.chapters.all { it.title.length <= 500 && it.text.length <= CHAPTER_SIZE }) { "单章最多 12000 字符" }
         require(book.protectedText.size <= 1000 && book.protectedText.all { it.length <= CHAPTER_SIZE })
@@ -248,6 +259,7 @@ class Store(private val root: File) {
             .put("style", book.style).put("facts", book.facts).put("buttons", JSONArray(book.buttons))
             .put("protectedText", JSONArray(book.protectedText))
             .put("cards",StoryJson.cards(book.cards)).put("relations",StoryJson.relations(book.relations))
+            .put("workspaceId",book.workspaceId).put("resources",ResourceJson.encode(book.resources)).put("bindings",BindingJson.encode(book.bindings))
             .put("chapters", JSONArray(book.chapters.map { JSONObject().put("title", it.title).put("text", it.text).put("id",it.id).put("revision",it.revision).put("sceneId",it.scene.id).put("sceneTitle",it.scene.title).put("epoch",it.epoch) }))
             .toString().toByteArray(Charsets.UTF_8)
     }
@@ -262,7 +274,9 @@ class Store(private val root: File) {
         return Book(json.getString("id"), json.getString("title"), (0 until chapters.length()).map {
             chapters.getJSONObject(it).let { c -> Chapter(c.getString("title"), c.getString("text"), c.optString("id").ifBlank { "chapter-$it" }, c.optLong("revision",0), Scene(c.optString("sceneId").ifBlank { "scene-$it" }, c.optString("sceneTitle","本章场景")),c.optString("epoch").ifBlank{"legacy"}) }
         }, json.optString("style"), json.optString("facts"), (0 until buttons.length()).map { buttons.getString(it) },
-            (0 until protectedText.length()).map { protectedText.getString(it) }, StoryJson.cards(json.optJSONArray("cards")), StoryJson.relations(json.optJSONArray("relations"))).also(::validate)
+            (0 until protectedText.length()).map { protectedText.getString(it) }, StoryJson.cards(json.optJSONArray("cards")), StoryJson.relations(json.optJSONArray("relations")),
+            if(json.has("workspaceId")) (json.get("workspaceId") as? String ?: error("工作区标识类型无效")) else UUID.nameUUIDFromBytes(("workspace:"+json.getString("id")).toByteArray()).toString(),
+            ResourceJson.decode(strictOptionalArray(json,"resources")),BindingJson.decode(strictOptionalArray(json,"bindings"))).also(::validate)
     }
     /** Bound recursive JSON parsing before org.json sees any untrusted bytes. */
     private fun parseJson(bytes: ByteArray): JSONObject {
