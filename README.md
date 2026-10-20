@@ -1,18 +1,18 @@
-# 下一章 · Android 0.1
+# 下一章 · Android 0.2 工作区预览
 
 A local-first personal novel and text reader/editor. This is a private prototype, not a store-published or stable release. All sample fiction is original synthetic text.
 
-## First usable slice
+## Selection-first writing slice
 
 - Import UTF-8 / GB18030 TXT, DRM-free EPUB, plain HTML, or pasted/shared text.
 - Local bookshelf, chapter navigation, adjustable text size, reading-position persistence.
-- Explicit current-chapter editing with 650 ms debounced autosave and flush on app stop. Ordered tickets prevent a late older draft from overwriting a newer save.
+- Select text while reading, then choose own editing or AI rewriting. Explicit save/adopt, cancel without writing, and version-checked one-step undo; the reader stays mounted behind the editor.
 - Exact imported bytes retained separately from editable working text.
 - Up to 50 recent revisions within a 40 MB history budget. Rollback retains the current working version.
 - Checksummed `.prbook` export with original + working text + bounded revisions. Restore creates a separate new book rather than overwriting an original.
 - Recovery from a damaged working file uses newest valid history or hash-verified original, preserving the damaged file and showing a recovery notice.
-- Default style → per-book overrides → per-request style, plus facts, custom action buttons, and protected exact phrases.
-- HTTPS OpenAI-compatible chat-completions adapter: frozen submitted request, locked controls while generating, explicit selected context disclosure, 2–3 candidates, before/after and changed-span preview, manual acceptance only. Unique-source replacement and protected-phrase occurrence enforcement happen in app code, not just in the prompt.
+- Three real entry points: text, outline, and reference material. Manually create/edit characters, places, outline cards, scene associations and directed/bidirectional relationships. Stable IDs distinguish duplicate names. Legacy facts/style are retained without guessed migration.
+- HTTPS OpenAI-compatible chat-completions adapter: short rewrite presets/intensity, explicit selection and opt-in current-scene material preview, 2–3 candidates, source/candidate/difference tabs, manual adoption only. Exact offsets + chapter ID + revision + recovery epoch prevent wrong-instance or stale replacement. Protected-phrase enforcement stays local.
 - API key encrypted with Android Keystore AES-GCM, excluded from OS backup and app exports. No bundled key, default provider, telemetry, cloud sync, public sharing, or automatic book rewriting.
 
 ## What is intentionally limited
@@ -23,7 +23,7 @@ A local-first personal novel and text reader/editor. This is a private prototype
 - Input files ≤20 MB, expanded ZIP ≤40 MB, ≤2,000 entries; book ≤5,000 chapter chunks. Chapters are split into at most 12,000 UTF-16 characters to keep editing bounded. EPUB images, styling, footnotes/navigation semantics, and complex layouts are flattened to text. EPUB files containing an encryption manifest are conservatively rejected, including some otherwise DRM-free books with obfuscated fonts.
 - Backups must fit the same limits on restore. Very large incompressible books may exceed the export budget and produce a clear error rather than an unusable archive.
 - Local data is private within the Android app sandbox, but book content is not separately encrypted at rest. Uninstalling the app removes it; explicitly export backups first.
-- Abrupt OS/process loss within the 650 ms autosave window can lose the most recent keystrokes. Normal app stop flushes edits. No claim of zero-loss protection.
+- Edits are saved only with the save/adopt button, not while typing. Candidate sessions are not yet persisted across process death. Draft recovery, multi-block partial adoption, typed continuation/summary and editable structured presets are future increments, not claimed here.
 - Host native-render screenshots are not physical-phone acceptance. Accessibility, low-memory behavior, keyboard/IME, file pickers, and provider connection require device validation.
 
 ## Build and test
@@ -32,6 +32,8 @@ JDK 21; Android SDK 36; Gradle 9.1; Android Gradle Plugin 9.0.1. Dependencies ar
 
     ./gradlew :app:testDebugUnitTest :app:assembleDebug :app:lintDebug --max-workers=1
 
-`CoreTest` covers import/storage/backup and malicious archives; `AiTest` covers payload, parsing, endpoint and address policies without external requests; `EditingTest` checks immutable selected-source replacement and protected phrases; `ReaderUiTest` exercises native Compose UI using Robolectric/Roborazzi and writes screenshots to `app/build/outputs/reader-ui`.
+`CoreTest` covers import/storage/backup and malicious archives; `AiTest` covers payload, parsing, endpoint and address policies without external requests; `StoryModelTest` checks exact selection, stale/recovered anchors, opt-in request scope, IDs/scene associations and backup compatibility; `EditingTest` keeps legacy helper/protected-phrase coverage; `ReaderUiTest` exercises native Compose UI using Robolectric/Roborazzi and writes screenshots to `app/build/outputs/reader-ui`.
 
 The repository/publication status is tracked separately from this local build. Do not commit API keys, signing keys, user manuscripts, or private data.
+
+See WRITING_WORKSPACE.md for the stage contract and deferred work. TESTING.md distinguishes the earlier baseline from this increment.

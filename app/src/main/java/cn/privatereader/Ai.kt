@@ -246,3 +246,17 @@ class SecureSettings(context: Context) {
         store().deleteEntry(alias)
     }
 }
+
+/** Injectable boundary for offline UI fixtures; production always uses locally configured credentials. */
+interface WritingAi {
+    fun provider():ProviderConfig?
+    fun generate(expectedProvider:ProviderConfig,request:RewriteRequest):List<String>
+}
+class SettingsWritingAi(private val settings:SecureSettings):WritingAi {
+    override fun provider():ProviderConfig? = settings.config()?.takeIf{!settings.key().isNullOrBlank()}
+    override fun generate(expectedProvider:ProviderConfig,request:RewriteRequest):List<String> {
+        require(settings.config()==expectedProvider){"服务设置已变化，请关闭面板重新确认发送范围"}
+        val key=settings.key()?:error("未配置密钥")
+        return OpenAiCompatibleAdapter().rewrite(expectedProvider,key,request)
+    }
+}

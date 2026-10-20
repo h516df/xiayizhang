@@ -1,14 +1,15 @@
 # Device acceptance checklist
 
-Use synthetic text only until persistence/import/export has passed on the intended phone.
+Use synthetic text until persistence/import/export passes on the intended phone. Host Compose tests are not device acceptance.
 
-1. Install debug APK, open empty bookshelf; import UTF-8 TXT and GB18030 TXT with Chinese chapter headings.
-2. Import DRM-free EPUB with nonalphabetical spine order; confirm chapter order and that scripts/styles do not appear or execute.
-3. Edit one chapter, wait a second, background/foreground, force-stop/reopen; verify saved text and unchanged exported original bytes.
-4. Open version history, restore an earlier version, then restore the pre-rollback version.
-5. Export `.prbook` through Android's system file picker, restore it, verify independent copy, original and revisions.
-6. Share text from browser into the app; verify preview before import. A URL-only share is not article extraction.
-7. Configure an authorized HTTPS provider and key directly on device. Confirm destination, model, selected content and billing before each first request. Do not send real private writing until this is approved.
-8. Generate 2–3 candidates; dismiss without change; retry and manually accept; verify changed span, protected phrases, and rollback.
-9. Test offline, invalid key, refused output, HTTP error, malformed JSON and oversized response; none should alter text.
-10. Test 1.5x font, keyboard, rotation/back, denied/cancelled import/export, repeated taps, low storage, and process recreation.
+1. Import UTF-8/GB18030 TXT and DRM-free EPUB; check order, inert scripts, chapter navigation and font size.
+2. Scroll mid-chapter, long-press/drag a selection including a repeated phrase. Own edit must change exactly that occurrence. Cancel/save/AI adoption must return to the reading position.
+3. Try IME, 1.5x font, small viewport, rotation, Back and rapid repeated taps. Cancel is not autosave. Unsaved drafts/candidates may not survive process death.
+4. Create/edit same-name characters, places and outline cards. Associate multiple scenes. Add directed/bidirectional relations between correct IDs and edit applicability.
+5. Create a card from a selection; edit the source and verify its anchor is marked invalid rather than navigating to a duplicate sentence.
+6. Adopt and undo; change the stored chapter and try an older candidate/undo. It must refuse. Recover an old version and verify prior anchors never revive.
+7. Export/restore a .prbook using the system picker; verify independent book, original bytes, references, relationships and history. Test a baseline version-1 backup too.
+8. Configure an authorized provider directly on device. Confirm model, destination, selection and optional material before sending. No real private writing without approval.
+9. Generate/review/cancel/adopt. Verify default payload has only selection/instruction; optional context/cards are removable; future scenes and recursively related material are absent. No automatic setting updates.
+10. Check offline/errors/invalid key/oversized or malformed response and interruption. Failure must retain the draft and never write prose. Confirm no configured service gives no generation illusion.
+11. Denied/cancelled pickers, low storage, backgrounding, and process recreation require device validation. Keep external backups before using unique manuscripts.

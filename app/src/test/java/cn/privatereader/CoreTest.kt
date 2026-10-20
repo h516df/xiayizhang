@@ -31,7 +31,9 @@ class CoreTest {
         assertEquals(1, store.revisions(book.id).size)
         store.save(edited)
         assertEquals(1, store.revisions(book.id).size)
-        assertEquals(book, store.rollback(book.id, store.revisions(book.id).first()))
+        val rolled=store.rollback(book.id, store.revisions(book.id).first())
+        assertEquals(book,rolled.copy(chapters=rolled.chapters.mapIndexed{i,c->c.copy(epoch=book.chapters[i].epoch)}))
+        assertNotEquals(book.chapters[0].epoch,rolled.chapters[0].epoch)
         assertArrayEquals(original, store.originalBytes(book.id))
     }
     @Test fun gb18030AndSurrogateSafeChunks() {
@@ -98,7 +100,9 @@ class CoreTest {
         val original = store.importBook("原稿.txt", text("原稿"))
         store.save(original.copy(style = "修订"))
         java.io.File(root, "${original.id}/book.json").writeText("corrupt")
-        assertEquals(original, store.load(original.id))
+        val recovered=store.load(original.id)!!
+        assertEquals(original, recovered.copy(chapters=recovered.chapters.mapIndexed{i,c->c.copy(epoch=original.chapters[i].epoch)}))
+        assertNotEquals(original.chapters[0].epoch,recovered.chapters[0].epoch)
         assertTrue(java.io.File(root, original.id).listFiles()!!.any { it.name.startsWith("book.corrupt-") && it.readText() == "corrupt" })
         assertTrue(store.recoveryNotice(original.id)!!.contains("历史版本"))
         assertArrayEquals(text("原稿"), store.originalBytes(original.id))
@@ -108,7 +112,10 @@ class CoreTest {
         val store = Store(root)
         val original = store.importBook("原稿.txt", text("原稿"))
         java.io.File(root, "${original.id}/book.json").writeText("broken")
-        assertEquals(original, store.list().single())
+        val recovered=store.list().single()
+        assertEquals(original.id,recovered.id)
+        assertEquals(original.title,recovered.title)
+        assertEquals(original.chapters.map{it.title to it.text},recovered.chapters.map{it.title to it.text})
         assertTrue(store.recoveryNotice(original.id)!!.contains("从原稿恢复"))
     }
     @Test fun completelyCorruptBookIsNotSilentlyHidden() {
