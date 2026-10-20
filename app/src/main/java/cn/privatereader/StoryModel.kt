@@ -10,7 +10,7 @@ data class SourceAnchor(val chapterId:String, val revision:Long, val start:Int, 
  fun matches(chapter:Chapter):Boolean = chapter.id==chapterId && chapter.epoch==epoch && chapter.revision==revision && start>=0 && end>start && end<=chapter.text.length && chapter.text.substring(start,end)==source
 }
 enum class CardKind(val label:String) { CHARACTER("人物"), PLACE("地点"), OUTLINE("大纲") }
-data class StoryCard(val id:String=newId(),val kind:CardKind,val name:String,val notes:String="",val sceneIds:List<String> = emptyList(),val source:SourceAnchor?=null)
+data class StoryCard(val id:String=newId(),val kind:CardKind,val name:String,val notes:String="",val sceneIds:List<String> = emptyList(),val source:SourceAnchor?=null,val referenceId:String?=null)
 data class StoryRelation(val id:String=newId(),val fromId:String,val toId:String,val label:String,val sceneIds:List<String> = emptyList(),val directed:Boolean=true)
 data class Scene(val id:String=newId(),val title:String="本章场景")
 
@@ -33,8 +33,8 @@ internal object StoryJson {
  fun anchor(a:SourceAnchor)=JSONObject().put("chapterId",a.chapterId).put("revision",a.revision).put("start",a.start).put("end",a.end).put("source",a.source).put("epoch",a.epoch)
  fun anchor(j:JSONObject)=SourceAnchor(j.getString("chapterId"),j.getLong("revision"),j.getInt("start"),j.getInt("end"),j.getString("source"),j.optString("epoch"))
  fun strings(j:JSONArray?):List<String> {require((j?.length()?:0)<=5000);return (0 until (j?.length()?:0)).map{j!!.getString(it)}}
- fun cards(cards:List<StoryCard>)=JSONArray(cards.map{c->JSONObject().put("id",c.id).put("kind",c.kind.name).put("name",c.name).put("notes",c.notes).put("sceneIds",JSONArray(c.sceneIds)).also{j->c.source?.let{j.put("source",anchor(it))}}})
- fun cards(a:JSONArray?)=(0 until (a?.length()?:0).also{require(it<=2000)}).map{a!!.getJSONObject(it).let{j->StoryCard(j.getString("id"),CardKind.valueOf(j.getString("kind")),j.getString("name"),j.optString("notes"),strings(j.optJSONArray("sceneIds")),j.optJSONObject("source")?.let(::anchor))}}
+ fun cards(cards:List<StoryCard>)=JSONArray(cards.map{c->JSONObject().put("id",c.id).put("kind",c.kind.name).put("name",c.name).put("notes",c.notes).put("sceneIds",JSONArray(c.sceneIds)).also{j->c.source?.let{j.put("source",anchor(it))};c.referenceId?.let{j.put("referenceId",it)}}})
+ fun cards(a:JSONArray?)=(0 until (a?.length()?:0).also{require(it<=2000)}).map{a!!.getJSONObject(it).let{j->StoryCard(j.getString("id"),CardKind.valueOf(j.getString("kind")),j.getString("name"),j.optString("notes"),strings(j.optJSONArray("sceneIds")),j.optJSONObject("source")?.let(::anchor),j.optString("referenceId").takeIf{it.isNotBlank()})}}
  fun relations(rs:List<StoryRelation>)=JSONArray(rs.map{r->JSONObject().put("id",r.id).put("fromId",r.fromId).put("toId",r.toId).put("label",r.label).put("sceneIds",JSONArray(r.sceneIds)).put("directed",r.directed)})
  fun relations(a:JSONArray?)=(0 until (a?.length()?:0).also{require(it<=5000)}).map{a!!.getJSONObject(it).let{j->StoryRelation(j.getString("id"),j.getString("fromId"),j.getString("toId"),j.getString("label"),strings(j.optJSONArray("sceneIds")),j.optBoolean("directed",true))}}
  fun validate(b:Book) {
@@ -55,12 +55,16 @@ internal object StoryJson {
 
 /** Build only the selection and explicit current-scene opt-ins. Never traverse relationships. */
 fun selectionRequest(book:Book,chapter:Chapter,anchor:SourceAnchor,instruction:String,strength:String,
- cardIds:Set<String> = emptySet(),relationIds:Set<String> = emptySet(),includeContext:Boolean=false,includeLegacy:Boolean=false):RewriteRequest {
+ cardIds:Set<String> = emptySet(),relationIds:Set<String> = emptySet(),includeContext:Boolean=false,includeLegacy:Boolean=false,referencePartIds:Set<String> = emptySet(),expectedWorkspaceId:String=book.workspaceId):RewriteRequest {
+ require(book.workspaceId==expectedWorkspaceId){"工作区已变化，请重新确认"}
  require(anchor.matches(chapter)){"选区已变化，请重新选择"}
  val cards=book.cards.filter{it.id in cardIds && chapter.scene.id in it.sceneIds}
  val relations=book.relations.filter{it.id in relationIds && chapter.scene.id in it.sceneIds}
  require(cards.map{it.id}.toSet()==cardIds && relations.map{it.id}.toSet()==relationIds){"所选资料已不属于当前场景，请重新确认"}
+ val referenceParts=referenceContextParts(book,chapter.scene.id).filter{it.id in referencePartIds}
+ require(referenceParts.map{it.id}.toSet()==referencePartIds){"导入条目已禁用、未关联当前场景或不属于本工作区，请重新确认"}
  val facts=buildString{
+  referenceParts.forEach{append("明确选择的导入资料[id=${it.id}]：${it.title}\n${it.content}\n")}
   cards.forEach{append("${it.kind.label}[id=${it.id}]：${it.name}\n${it.notes}\n")}
   relations.forEach{r->append("关系[id=${r.id}]：${book.cards.find{it.id==r.fromId}?.name}[id=${r.fromId}]${if(r.directed)"→"else"↔"}${book.cards.find{it.id==r.toId}?.name}[id=${r.toId}]：${r.label}\n")}
   if(includeLegacy)append("原有设定：${book.facts}\n")

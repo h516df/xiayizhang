@@ -1,0 +1,29 @@
+{
+  "entries": {
+    "7": {
+      "uid": 7,
+      "key": [
+        "雾港"
+      ],
+      "keysecondary": [],
+      "comment": "雾港渡船",
+      "content": "渡船只在清晨靠岸。",
+      "disable": false,
+      "constant": false,
+      "order": 10,
+      "position": 0,
+      "example_unknown": {
+        "keep": true
+      }
+    },
+    "8": {
+      "uid": 8,
+      "key": [
+        "禁止触发"
+      ],
+      "content": "已禁用",
+      "disable": true,
+      "order": 20
+    }
+  }
+}

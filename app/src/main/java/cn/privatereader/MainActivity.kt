@@ -37,7 +37,7 @@ private val Paper=Color(0xFFF6F3EB)
 private val Ink=Color(0xFF293A32)
 private val Muted=Color(0xFF788178)
 @Composable internal fun ReaderTheme(content:@Composable ()->Unit) {
- MaterialTheme(colorScheme=lightColorScheme(primary=Ink,onPrimary=Color.White,background=Paper,surface=Paper,secondary=Muted),content=content)
+ MaterialTheme(colorScheme=lightColorScheme(primary=Ink,onPrimary=Color.White,background=Paper,surface=Paper,secondary=Muted,secondaryContainer=Color(0xFFDCE5D8),onSecondaryContainer=Ink,primaryContainer=Color(0xFFE1E8DA),onPrimaryContainer=Ink),content=content)
 }
 @Composable fun PrivateReader(store:Store, settings:SecureSettings, shared:String="") {
  val scope=rememberCoroutineScope()

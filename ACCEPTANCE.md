@@ -13,3 +13,11 @@ Use synthetic text until persistence/import/export passes on the intended phone.
 9. Generate/review/cancel/adopt. Verify default payload has only selection/instruction; optional context/cards are removable; future scenes and recursively related material are absent. No automatic setting updates.
 10. Check offline/errors/invalid key/oversized or malformed response and interruption. Failure must retain the draft and never write prose. Confirm no configured service gives no generation illusion.
 11. Denied/cancelled pickers, low storage, backgrounding, and process recreation require device validation. Keep external backups before using unique manuscripts.
+
+## Local reference JSON import
+
+12. Pick valid V2/V3 character and worldbook JSON; cancel the preview and verify no resource/history write. Confirm twice using separate previews: same names must remain separate resources.
+13. Verify malformed/oversized JSON fails without changing the book. PNG/CHARX must not appear supported. External URLs/scripts must never run or load automatically.
+14. Bind an import to one scene, disable it, and check the AI picker only lists enabled current-scene entries. Selecting one entry must not silently include other entries, opening dialogue or system prompts.
+15. Copy an entry into editable local material, save edits, and verify the original JSON snapshot is unchanged. Restore a backup as a separate book/workspace and verify exact raw JSON, bindings and edited cards survive.
+16. Check the complete reader 更多 menu and import preview/context picker on small screens and large fonts; system file selection remains a physical-device acceptance step.

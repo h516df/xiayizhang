@@ -1,0 +1,21 @@
+{
+  "name": "雾港",
+  "extensions": {},
+  "entries": [
+    {
+      "keys": [
+        "雾港"
+      ],
+      "content": "渡船只在清晨靠岸。",
+      "enabled": true,
+      "insertion_order": 10,
+      "extensions": {
+        "example/opaque": {
+          "keep": true
+        }
+      },
+      "id": 7,
+      "constant": false
+    }
+  ]
+}
