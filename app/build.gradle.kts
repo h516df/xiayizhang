@@ -1,9 +1,10 @@
 plugins { id("com.android.application"); id("org.jetbrains.kotlin.plugin.compose") }
 android {
  namespace = "cn.privatereader"; compileSdk = 36
- defaultConfig { applicationId = "cn.privatereader"; minSdk = 26; targetSdk = 36; versionCode = 2; versionName = "0.2-alpha" }
+ defaultConfig { applicationId = "cn.privatereader"; minSdk = 26; targetSdk = 36; versionCode = 3; versionName = "0.3" }
  compileOptions { sourceCompatibility = JavaVersion.VERSION_21; targetCompatibility = JavaVersion.VERSION_21 }
  buildFeatures { compose = true }
+ buildTypes { getByName("release") { isDebuggable = false; isMinifyEnabled = false } }
  testOptions { unitTests.isReturnDefaultValues = true }
 }
 dependencies {
@@ -28,7 +29,7 @@ android.testOptions.unitTests.apply {
         it.systemProperty("roborazzi.test.record", "true")
         it.systemProperty("robolectric.pixelCopyRenderMode", "hardware")
         it.systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
-        listOf("http.proxyHost", "http.proxyPort", "https.proxyHost", "https.proxyPort", "javax.net.ssl.trustStore").forEach { key ->
+        listOf("http.proxyHost", "http.proxyPort", "https.proxyHost", "https.proxyPort", "javax.net.ssl.trustStore", "robolectric.offline", "robolectric.dependency.dir").forEach { key ->
             System.getProperty(key)?.let { value -> it.systemProperty(key, value) }
         }
         it.jvmArgs(

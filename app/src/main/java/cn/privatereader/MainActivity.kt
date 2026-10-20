@@ -79,7 +79,8 @@ private val Muted=Color(0xFF788178)
  ReaderTheme {
   Surface(Modifier.fillMaxSize(),color=Paper){Column(Modifier.safeDrawingPadding()) {
    Row(Modifier.fillMaxWidth().padding(horizontal=24.dp,vertical=if(route=="reader")8.dp else 18.dp),horizontalArrangement=Arrangement.SpaceBetween){
-    Text(if(route=="shelf")"下一章" else if(route=="reader")book?.title.orEmpty() else if(route=="settings")"AI 连接" else "收入书架",modifier=Modifier.weight(1f),maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis,fontSize=if(route=="reader")20.sp else 26.sp,fontWeight=FontWeight.SemiBold,color=Ink)
+    Text(if(route=="shelf")"下一章" else if(route=="reader")book?.title.orEmpty() else if(route=="settings")"AI 连接" else if(route=="updates")"版本与更新" else "收入书架",modifier=Modifier.weight(1f),maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis,fontSize=if(route=="reader")20.sp else 26.sp,fontWeight=FontWeight.SemiBold,color=Ink)
+    if(route=="shelf")TextButton(onClick={route="updates"}){Text("检查更新")}
     TextButton(enabled=!busy,onClick={if(route=="shelf"){settingsFromReader=false;route="settings"}else if(route=="settings"&&settingsFromReader){route="reader";settingsFromReader=false}else {route="shelf";refresh()}}){Text(if(route=="shelf")"AI 设置" else if(route=="settings"&&settingsFromReader)"返回阅读"else"书架")}
 
    }
@@ -110,6 +111,7 @@ private val Muted=Color(0xFF788178)
       {settingsFromReader=true;route="settings"},{profile=true},onFont={font=if(font>=26)18f else font+2})}
     }
     "settings" -> SettingsPanel(settings){error=it}
+    "updates" -> { val updater=remember(context){dev.h516.update.Updater(context)};DisposableEffect(updater){onDispose{updater.cancel()}};dev.h516.update.UpdateScreen(updater,PaddingValues(0.dp)) }
    }
   }}
   if(error.isNotBlank())AlertDialog(onDismissRequest={error=""},title={Text("提示")},text={Text(error)},confirmButton={TextButton(onClick={error=""}){Text("知道了")}})
