@@ -48,6 +48,7 @@ private val Muted=Color(0xFF788178)
  var error by remember { mutableStateOf(if(shared.length>120000)"分享文字超过 12 万字符，请保存为 TXT 文件后导入。未截断保存。"else "") }
  var busy by remember { mutableStateOf(false) }
  var pasted by remember { mutableStateOf(if(shared.length<=120000)shared else "") }
+ var cleanupSource by remember { mutableStateOf<String?>(null) }
  var title by remember { mutableStateOf("") }
  var revision by remember { mutableStateOf<List<String>?>(null) }
  val readerState=rememberSaveableStateHolder()
@@ -99,6 +100,7 @@ private val Muted=Color(0xFF788178)
      Text("先预览，再收入",fontSize=22.sp);Text("粘贴正文或从浏览器分享文字。仅网址不能离线提取正文；请在原页面复制可访问的内容。不会绕过登录或版权保护。",color=Muted,lineHeight=23.sp)
      OutlinedTextField(title,{title=it},label={Text("书名 / 笔记名")},modifier=Modifier.fillMaxWidth())
      OutlinedTextField(pasted,{if(it.length<=120000)pasted=it else error="文字超过 12 万字符，请使用 TXT 文件导入；未截断保存"},label={Text("粘贴文字（最多 12 万字）")},modifier=Modifier.fillMaxWidth().height(300.dp))
+     OutlinedButton(enabled=pasted.isNotBlank()&&!busy,onClick={cleanupSource=pasted}){Text("清理杂文再收入")}
      Button(enabled=pasted.isNotBlank()&&!busy,onClick={task{val b=withContext(Dispatchers.IO){store.importBook((title.ifBlank{"未命名文字"})+".txt",pasted.toByteArray())};pasted="";title="";refresh();open(b)}}){Text("保留原文并收入书架")}
     }
     "reader" -> book?.let { b ->
@@ -112,6 +114,10 @@ private val Muted=Color(0xFF788178)
   }}
   if(error.isNotBlank())AlertDialog(onDismissRequest={error=""},title={Text("提示")},text={Text(error)},confirmButton={TextButton(onClick={error=""}){Text("知道了")}})
 
+  cleanupSource?.let{source->CleanupPanel(source,busy,importing=true,close={cleanupSource=null}){cleaned->task{
+   val b=withContext(Dispatchers.IO){store.importCleanedText((title.ifBlank{"未命名文字"})+".txt",source,cleaned)}
+   cleanupSource=null;pasted="";title="";refresh();open(b)
+  }}}
   revision?.let{rs->AlertDialog(onDismissRequest={revision=null},title={Text("恢复历史版本")},text={LazyColumn{item{Text("恢复会保留当前版本。原始导入文件不会改变。",color=Muted)};itemsIndexed(rs){_,r->TextButton(onClick={task{book=withContext(Dispatchers.IO){store.rollback(book!!.id,r)};chapter=0;revision=null}}){Text(r)}}}},confirmButton={TextButton(onClick={revision=null}){Text("取消")}})}
   if(profile && book!=null)ProfileDialog(book!!,{profile=false}){next->task{book=withContext(Dispatchers.IO){store.save(next)};profile=false;refresh()}}
 

@@ -75,6 +75,7 @@ import kotlinx.coroutines.*
     Box{TextButton(enabled=!saving,onClick={readerMenu=true}){Text("更多")};DropdownMenu(expanded=readerMenu,onDismissRequest={readerMenu=false}){
      DropdownMenuItem(text={Text("上一章")},enabled=index>0,onClick={readerMenu=false;onChapter(index-1)})
      DropdownMenuItem(text={Text("下一章")},enabled=index<book.chapters.lastIndex,onClick={readerMenu=false;onChapter(index+1)})
+     DropdownMenuItem(text={Text("清理本章")},enabled=chapter.text.isNotBlank(),onClick={readerMenu=false;anchor=selectionAnchor(chapter,0,chapter.text.length);mode="cleanup"})
      DropdownMenuItem(text={Text("历史")},onClick={readerMenu=false;onHistory()})
      DropdownMenuItem(text={Text("备份")},onClick={readerMenu=false;onBackup()})
     }}
@@ -90,6 +91,7 @@ import kotlinx.coroutines.*
     fun capture():SourceAnchor=selectionAnchor(chapter,value.selection.min,value.selection.max)
     Button(enabled=selected&&!saving,onClick={anchor=capture();focusManager.clearFocus();mode="self"}){Text("自己改")}
     OutlinedButton(enabled=selected&&!saving,onClick={anchor=capture();focusManager.clearFocus();mode="ai"}){Text("AI 改")}
+    TextButton(enabled=selected&&!saving,onClick={anchor=capture();focusManager.clearFocus();mode="cleanup"}){Text("清理选区")}
     TextButton(enabled=selected&&!saving,onClick={cardEditor=StoryCard(kind=CardKind.CHARACTER,name=value.selectedText().take(200),sceneIds=listOf(chapter.scene.id),source=capture())}){Text("存为资料")}
     TextButton(enabled=undo!=null&&!saving,onClick={val pair=undo?:return@TextButton;val current=book.chapters.find{it.id==pair.second.id};if(current!=pair.second){error="正文已变化，不能撤销覆盖；请使用历史恢复"}else {saving=true;scope.launch{try{val saved=withContext(Dispatchers.IO){store.undoSelection(book.id,pair.first,pair.second)};onSaved(saved);undo=null}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message?:"未撤销"}finally{saving=false}}}}){Text("撤销")}
    }
@@ -117,7 +119,7 @@ import kotlinx.coroutines.*
   }
  }
  if(toc)AlertDialog(onDismissRequest={toc=false},title={Text("章节目录")},text={LazyColumn{itemsIndexed(book.chapters){i,c->TextButton(onClick={onChapter(i);toc=false}){Text("${i+1} ${c.title}")}}}},confirmButton={TextButton(onClick={toc=false}){Text("关闭")}})
- anchor?.let{a->if(mode=="self")SelfEditPanel(a,saving,{mode=""},{apply(a,it)}) else if(mode=="ai")SelectionAiPanel(book,chapter,a,gateway,saving,{mode=""},onSettings){apply(a,it)}}
+ anchor?.let{a->if(mode=="cleanup")CleanupPanel(a.source,saving,allowEmpty=a.matches(chapter)&&chapter.text.replaceRange(a.start,a.end,"").isNotBlank(),close={mode=""},apply={apply(a,it)}) else if(mode=="self")SelfEditPanel(a,saving,{mode=""},{apply(a,it)}) else if(mode=="ai")SelectionAiPanel(book,chapter,a,gateway,saving,{mode=""},onSettings){apply(a,it)}}
  cardEditor?.let{card->CardEditor(card,book,saving,{cardEditor=null}){edited->save(book.copy(cards=if(book.cards.any{it.id==edited.id})book.cards.map{if(it.id==edited.id)edited else it}else book.cards+edited)){cardEditor=null}}}
  relationEditor?.let{r->RelationEditor(r,book,saving,{relationEditor=null}){edited->save(book.copy(relations=if(book.relations.any{it.id==edited.id})book.relations.map{if(it.id==edited.id)edited else it}else book.relations+edited)){relationEditor=null}}}
  pendingImport?.let{r->ReferenceImportPreview(r,book,chapter.title,saving,{pendingImport=null}){if(!saving){saving=true;scope.launch{try{val saved=withContext(Dispatchers.IO){store.importReference(book.id,book.workspaceId,chapter.scene.id,r)};onSaved(saved);pendingImport=null}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message?:"未保存导入"}finally{saving=false}}}}}
@@ -126,9 +128,9 @@ import kotlinx.coroutines.*
  if(error.isNotBlank())AlertDialog(onDismissRequest={error=""},title={Text("未完成操作")},text={Text(error)},confirmButton={TextButton(onClick={error=""}){Text("知道了")}})
 }
 private fun TextFieldValue.selectedText()=text.substring(selection.min,selection.max)
-@Composable internal fun EditorFrame(title:String,close:()->Unit,locked:Boolean=false,content:@Composable ColumnScope.()->Unit){
+@Composable internal fun EditorFrame(title:String,close:()->Unit,locked:Boolean=false,closeLabel:String="取消 · 返回阅读",content:@Composable ColumnScope.()->Unit){
  Dialog(onDismissRequest={if(!locked)close()},properties=DialogProperties(usePlatformDefaultWidth=false,dismissOnBackPress=!locked,dismissOnClickOutside=false)){
-  Surface(Modifier.fillMaxSize()){Column(Modifier.safeDrawingPadding().imePadding().padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(title,fontSize=23.sp);TextButton(enabled=!locked,onClick=close){Text("取消 · 返回阅读")}};content()}}
+  Surface(Modifier.fillMaxSize()){Column(Modifier.safeDrawingPadding().imePadding().padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(title,fontSize=23.sp);TextButton(enabled=!locked,onClick=close){Text(closeLabel)}};content()}}
  }
 }
 @Composable private fun SelfEditPanel(anchor:SourceAnchor,saving:Boolean,close:()->Unit,apply:(String)->Unit){

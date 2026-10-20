@@ -165,6 +165,20 @@ class Store(private val root: File) {
         install(book, bytes, name, emptyMap())
         return book
     }
+    /** Install cleaned working text atomically, with exact original bytes and a rollback revision. */
+    @Synchronized fun importCleanedText(name:String, original:String, cleaned:String):Book {
+        require(name.endsWith(".txt",ignoreCase=true)) { "清理导入仅支持纯文本" }
+        require(original.isNotBlank() && cleaned.isNotBlank()) { "清理后不能没有正文" }
+        require(original.length<=120000 && cleaned.length<=120000) { "一次清理最多 12 万字符" }
+        val id=newId()
+        val title=name.substringBeforeLast('.').take(200).ifBlank { "未命名文字" }
+        val before=Book(id,title,parseText(title,original))
+        val after=before.copy(chapters=parseText(title,cleaned))
+        validate(before); validate(after)
+        val history=if(original==cleaned)emptyMap() else mapOf("revisions/${System.currentTimeMillis()}_${newId()}.json" to encode(before))
+        install(after,original.toByteArray(Charsets.UTF_8),name.dropLast(4).take(496)+".txt",history)
+        return after
+    }
     /** Exact originally imported bytes, suitable for an explicit original export. */
     @Synchronized fun originalBytes(id: String): ByteArray = readBounded(File(folder(id), "source.bin"), MAX_FILE)
     @Synchronized fun exportBackup(id: String): ByteArray {
