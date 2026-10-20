@@ -2,18 +2,25 @@ plugins { id("com.android.application"); id("org.jetbrains.kotlin.plugin.compose
 android {
  namespace = "cn.privatereader"; compileSdk = 36
  defaultConfig { applicationId = "cn.privatereader"; minSdk = 26; targetSdk = 36; versionCode = 3; versionName = "0.3" }
- compileOptions { sourceCompatibility = JavaVersion.VERSION_21; targetCompatibility = JavaVersion.VERSION_21 }
+ compileOptions { isCoreLibraryDesugaringEnabled = true; sourceCompatibility = JavaVersion.VERSION_21; targetCompatibility = JavaVersion.VERSION_21 }
  buildFeatures { compose = true }
  buildTypes { getByName("release") { isDebuggable = false; isMinifyEnabled = false } }
  testOptions { unitTests.isReturnDefaultValues = true }
 }
 dependencies {
+ coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
  implementation(platform("androidx.compose:compose-bom:2026.03.01"))
  implementation("androidx.activity:activity-compose:1.13.0")
  implementation("androidx.compose.ui:ui")
  implementation("androidx.compose.foundation:foundation")
  implementation("androidx.compose.material3:material3")
  implementation("androidx.core:core-ktx:1.18.0")
+ implementation("org.readium.kotlin-toolkit:readium-navigator:3.3.0")
+ implementation("androidx.fragment:fragment-ktx:1.8.9")
+ implementation("com.mohamedrejeb.richeditor:richeditor-compose:1.0.0") {
+  // Use the basic editor with this app's stable Material3 shell, not its alpha M3 wrapper.
+  exclude(group = "org.jetbrains.compose.material3", module = "material3")
+ }
  implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
  testImplementation("junit:junit:4.13.2")
  testImplementation("org.json:json:20250517")

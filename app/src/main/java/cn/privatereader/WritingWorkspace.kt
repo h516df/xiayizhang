@@ -8,7 +8,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -25,7 +25,7 @@ import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.*
 
 /** Reading stays mounted underneath editors, so closing them never resets scroll position. */
-@Composable fun WritingWorkspace(book:Book,index:Int,store:Store,settings:SecureSettings,font:Float,onSaved:(Book)->Unit,onChapter:(Int)->Unit,onHistory:()->Unit,onBackup:()->Unit,onSettings:()->Unit,onLegacy:()->Unit,aiOverride:WritingAi?=null,onFont:()->Unit={}) {
+@Composable fun WritingWorkspace(book:Book,index:Int,store:Store,settings:SecureSettings,font:Float,onSaved:(Book)->Unit,onChapter:(Int)->Unit,onHistory:()->Unit,onBackup:()->Unit,onSettings:()->Unit,onLegacy:()->Unit,aiOverride:WritingAi?=null,onFont:()->Unit={},selectionEvents:ReaderSelectionEvents=remember {ReaderSelectionEvents()},onFontValue:(Float)->Unit={}) {
  val focusManager=androidx.compose.ui.platform.LocalFocusManager.current
  val gateway=remember(settings,aiOverride){aiOverride?:SettingsWritingAi(settings)}
  val chapter=book.chapters[index.coerceIn(book.chapters.indices)]
@@ -36,10 +36,6 @@ import kotlinx.coroutines.*
  var selectionEnd by rememberSaveable(chapter.id,chapter.revision,chapter.epoch){mutableIntStateOf(0)}
  val value=TextFieldValue(chapter.text,TextRange(selectionStart.coerceIn(0,chapter.text.length),selectionEnd.coerceIn(0,chapter.text.length)))
  val context=androidx.compose.ui.platform.LocalContext.current
- val preferences=remember(context){context.getSharedPreferences("reader_positions",0)}
- val positionKey="${book.id}:${chapter.id}"
- val scroll=rememberSaveable(positionKey,saver=ScrollState.Saver){ScrollState(preferences.getInt(positionKey,0))}
- DisposableEffect(positionKey,scroll){onDispose{preferences.edit().putInt(positionKey,scroll.value).apply()}}
  var anchor by remember{mutableStateOf<SourceAnchor?>(null)}
  var mode by remember{mutableStateOf("")}
  var error by remember{mutableStateOf("")}
@@ -51,6 +47,12 @@ import kotlinx.coroutines.*
  var referenceDetail by remember{mutableStateOf<ImportedResource?>(null)}
  var bindingEditor by remember{mutableStateOf<ReferenceBinding?>(null)}
  val scope=rememberCoroutineScope()
+ LaunchedEffect(selectionEvents,chapter.id,chapter.revision,chapter.epoch){selectionEvents.events.collect{(a,action)->
+  if(saving)return@collect
+  if(!a.matches(chapter)){error="正文已变化，请重新选择";return@collect}
+  selectionStart=a.start;selectionEnd=a.end;anchor=a;focusManager.clearFocus()
+  if(action=="card")cardEditor=StoryCard(kind=CardKind.CHARACTER,name=a.source.take(200),sceneIds=listOf(chapter.scene.id),source=a) else if(action!="select") mode=action
+ }}
  fun save(next:Book,done:(Book)->Unit={}) {if(saving)return;saving=true;scope.launch{try{val saved=withContext(Dispatchers.IO){store.save(next)};onSaved(saved);done(saved)}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message?:"保存失败，内容仍保留"}finally{saving=false}}}
  val importReferenceFile=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->if(uri!=null&&!saving){saving=true;scope.launch{try{pendingImport=withContext(Dispatchers.IO){
   var name="资料.json"
@@ -62,7 +64,10 @@ import kotlinx.coroutines.*
   if(saving)return
   val before=book.chapters.find{it.id==a.chapterId}?:return
   saving=true
-  scope.launch{try{val saved=withContext(Dispatchers.IO){store.editSelection(book.id,a,text)};onSaved(saved);undo=before to saved.chapters.first{it.id==a.chapterId};mode="";anchor=null}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message?:"未采用，修改仍保留"}finally{saving=false}}
+  scope.launch{try{val saved=withContext(Dispatchers.IO){store.editSelection(book.id,a,text)}
+   val readPrefs=context.getSharedPreferences("readium_positions",0);val offsetKey="${book.id}:${a.chapterId}:offset"
+   if(readPrefs.contains(offsetKey))readPrefs.edit().putInt(offsetKey,ReadingProjection.remapOffset(readPrefs.getInt(offsetKey,0),a.start,a.end,text.length)).putLong("${book.id}:${a.chapterId}:revision",saved.chapters.first{it.id==a.chapterId}.revision).apply()
+   onSaved(saved);undo=before to saved.chapters.first{it.id==a.chapterId};mode="";anchor=null}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message?:"未采用，修改仍保留"}finally{saving=false}}
  }
 
  Column(Modifier.fillMaxSize()) {
@@ -81,19 +86,20 @@ import kotlinx.coroutines.*
     }}
    }
 
-   Column(Modifier.weight(1f).testTag("reader-scroll").verticalScroll(scroll).padding(horizontal=24.dp)){
-    Text(chapter.title,fontSize=26.sp,modifier=Modifier.padding(vertical=14.dp))
-    Text("长按正文选中，再选择自己改或 AI 改",fontSize=12.sp,color=MaterialTheme.colorScheme.secondary,modifier=Modifier.padding(bottom=16.dp))
-    BasicTextField(value,onValueChange={if(it.text==chapter.text){selectionStart=it.selection.start;selectionEnd=it.selection.end}},readOnly=true,modifier=Modifier.testTag("reader-body").fillMaxWidth().padding(bottom=40.dp),textStyle=TextStyle(fontSize=font.sp,lineHeight=(font*1.8).sp,fontFamily=FontFamily.Serif,color=MaterialTheme.colorScheme.onSurface))
-   }
+   MatureReader(book.id,chapter,font,Modifier.weight(1f),onFont=onFontValue,onSelection={a,action->
+    selectionEvents.select(a,action)
+   },onError={error=it})
    val selected=!value.selection.collapsed
-   Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=12.dp),horizontalArrangement=Arrangement.spacedBy(6.dp)){
+   if(selected||undo!=null)Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=12.dp),horizontalArrangement=Arrangement.spacedBy(6.dp)){
     fun capture():SourceAnchor=selectionAnchor(chapter,value.selection.min,value.selection.max)
     Button(enabled=selected&&!saving,onClick={anchor=capture();focusManager.clearFocus();mode="self"}){Text("自己改")}
     OutlinedButton(enabled=selected&&!saving,onClick={anchor=capture();focusManager.clearFocus();mode="ai"}){Text("AI 改")}
     TextButton(enabled=selected&&!saving,onClick={anchor=capture();focusManager.clearFocus();mode="cleanup"}){Text("清理选区")}
     TextButton(enabled=selected&&!saving,onClick={cardEditor=StoryCard(kind=CardKind.CHARACTER,name=value.selectedText().take(200),sceneIds=listOf(chapter.scene.id),source=capture())}){Text("存为资料")}
-    TextButton(enabled=undo!=null&&!saving,onClick={val pair=undo?:return@TextButton;val current=book.chapters.find{it.id==pair.second.id};if(current!=pair.second){error="正文已变化，不能撤销覆盖；请使用历史恢复"}else {saving=true;scope.launch{try{val saved=withContext(Dispatchers.IO){store.undoSelection(book.id,pair.first,pair.second)};onSaved(saved);undo=null}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message?:"未撤销"}finally{saving=false}}}}){Text("撤销")}
+    TextButton(enabled=undo!=null&&!saving,onClick={val pair=undo?:return@TextButton;val current=book.chapters.find{it.id==pair.second.id};if(current!=pair.second){error="正文已变化，不能撤销覆盖；请使用历史恢复"}else {saving=true;scope.launch{try{val saved=withContext(Dispatchers.IO){store.undoSelection(book.id,pair.first,pair.second)}
+    val diff=textChange(pair.second.text,pair.first.text);val rp=context.getSharedPreferences("readium_positions",0);val k="${book.id}:${pair.first.id}:offset"
+    if(rp.contains(k))rp.edit().putInt(k,ReadingProjection.remapOffset(rp.getInt(k,0),diff.prefix.length,diff.prefix.length+diff.removed.length,diff.added.length)).putLong("${book.id}:${pair.first.id}:revision",saved.chapters.first{it.id==pair.first.id}.revision).apply()
+    onSaved(saved);undo=null}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message?:"未撤销"}finally{saving=false}}}}){Text("撤销")}
    }
   }else{
    val outline=tab==1
@@ -133,9 +139,39 @@ private fun TextFieldValue.selectedText()=text.substring(selection.min,selection
   Surface(Modifier.fillMaxSize()){Column(Modifier.safeDrawingPadding().imePadding().padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(title,fontSize=23.sp);TextButton(enabled=!locked,onClick=close){Text(closeLabel)}};content()}}
  }
 }
-@Composable private fun SelfEditPanel(anchor:SourceAnchor,saving:Boolean,close:()->Unit,apply:(String)->Unit){
- var draft by rememberSaveable(anchor){mutableStateOf(anchor.source)}
- EditorFrame("自己改",close,saving){Text("只修改所选 ${anchor.source.length} 字；取消不写入正文。",fontSize=13.sp);OutlinedTextField(draft,{if(it.length<=Store.CHAPTER_SIZE)draft=it},modifier=Modifier.weight(1f).fillMaxWidth(),enabled=!saving,label={Text("选中片段")});Button(enabled=!saving,onClick={apply(draft)}){Text("保存并回到阅读")}}
+@Composable internal fun SelfEditPanel(anchor:SourceAnchor,saving:Boolean,close:()->Unit,apply:(String)->Unit){
+ val editor=androidx.compose.runtime.saveable.rememberSaveable(anchor, saver=com.mohamedrejeb.richeditor.model.RichTextState.Saver){com.mohamedrejeb.richeditor.model.RichTextState(historyLimit=30).apply {setText(anchor.source);history.clear()}}
+ var reviewing by remember { mutableStateOf(false) }
+ var showOriginal by remember { mutableStateOf(false) }
+ val draft=editor.toText()
+ val exactImport=remember(anchor){com.mohamedrejeb.richeditor.model.RichTextState(historyLimit=0).setText(anchor.source).toText()==anchor.source}
+ EditorFrame(if(reviewing)"审阅修改"else"自己改",close,saving){
+  Text("只修改所选 ${anchor.source.length} 字；原稿与其他资料不变。",style=MaterialTheme.typography.labelMedium)
+  if(!reviewing){
+   TextButton(onClick={showOriginal=!showOriginal}){Text(if(showOriginal)"收起原文"else"查看所选原文")}
+   if(showOriginal)Surface(color=MaterialTheme.colorScheme.surfaceVariant,shape=RoundedCornerShape(8.dp)){
+    androidx.compose.foundation.text.selection.SelectionContainer{Text(anchor.source,Modifier.fillMaxWidth().heightIn(max=130.dp).verticalScroll(rememberScrollState()).padding(12.dp),fontSize=16.sp)}
+   }
+  }
+  if(!exactImport)Text("此片段含编辑器不能无损表示的字符，已阻止采用。请缩小选区。",color=MaterialTheme.colorScheme.error)
+  if(reviewing){
+   Column(Modifier.weight(1f).verticalScroll(rememberScrollState())){
+    ReviewPassage("原文",anchor.source,MaterialTheme.colorScheme.surfaceVariant)
+    Spacer(Modifier.height(12.dp))
+    ReviewPassage("修改后",draft,MaterialTheme.colorScheme.secondaryContainer)
+   }
+   Row {TextButton(onClick={reviewing=false},enabled=!saving){Text("继续编辑")};Button(onClick={apply(draft)},enabled=exactImport&&!saving&&draft.length<=Store.CHAPTER_SIZE){Text("采用并回到阅读")}}
+  }else{
+   Row {TextButton(onClick={editor.history.undo()},enabled=!saving&&editor.history.canUndo){Text("撤回输入")};TextButton(onClick={editor.history.redo()},enabled=!saving&&editor.history.canRedo){Text("重做输入")};Text("${draft.length} / ${Store.CHAPTER_SIZE}",Modifier.padding(12.dp))}
+   val clipboard=androidx.compose.ui.platform.LocalClipboard.current
+   val plainClipboard=remember(clipboard){PlainTextClipboard(clipboard)}
+   CompositionLocalProvider(androidx.compose.ui.platform.LocalClipboard provides plainClipboard){
+    com.mohamedrejeb.richeditor.ui.BasicRichTextEditor(state=editor,modifier=Modifier.weight(1f).fillMaxWidth().border(1.dp,MaterialTheme.colorScheme.outline,RoundedCornerShape(8.dp)).padding(14.dp).testTag("selection-editor"),enabled=!saving,maxLength=Store.CHAPTER_SIZE,textStyle=TextStyle(fontSize=19.sp,lineHeight=30.sp,color=MaterialTheme.colorScheme.onSurface),cursorBrush=androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary))
+   }
+   Text("写好后先审阅，再替换所选原文。",style=MaterialTheme.typography.labelSmall)
+   Button(enabled=exactImport&&!saving&&draft.length<=Store.CHAPTER_SIZE,onClick={reviewing=true}){Text("审阅修改")}
+  }
+ }
 }
 @Composable private fun CardEditor(card:StoryCard,book:Book,saving:Boolean,close:()->Unit,save:(StoryCard)->Unit){
  var name by remember{mutableStateOf(card.name)};var notes by remember{mutableStateOf(card.notes)};var kind by remember{mutableStateOf(card.kind)};var scenes by remember{mutableStateOf(card.sceneIds)}
@@ -176,7 +212,7 @@ private fun TextFieldValue.selectedText()=text.substring(selection.min,selection
   Column(Modifier.weight(1f).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)){
    if(choices.isEmpty()){
     Text("已选 ${anchor.source.length} 字 · 正文暂不改变",fontSize=13.sp)
-    Row(Modifier.horizontalScroll(rememberScrollState())){listOf("润色，保留原意","让对话更自然","精简重复描述").forEach{p->FilterChip(enabled=!running,selected=preset==p,onClick={preset=p},label={Text(p.substringBefore('，'))})}}
+    Row(Modifier.horizontalScroll(rememberScrollState())){listOf("润色，保留原意","让对话更自然","精简重复描述","改编这一段，给出不同剧情走向","补充场景细节，保留事实").forEach{p->FilterChip(enabled=!running,selected=preset==p,onClick={preset=p},label={Text(p.substringBefore('，'))})}}
     Row{Text("强度",Modifier.padding(12.dp));listOf("轻","中","强").forEach{s->FilterChip(enabled=!running,selected=strength==s,onClick={strength=s},label={Text(s)})}}
     TextButton(enabled=!running,onClick={more=!more}){Text(if(more)"收起更多"else"更多要求与发送资料")}
     if(more){
@@ -197,7 +233,10 @@ private fun TextFieldValue.selectedText()=text.substring(selection.min,selection
    }else{
     Row{choices.indices.forEach{i->TextButton(onClick={selected=i},enabled=!running){Text(if(i==selected)"● 候选${i+1}"else"候选${i+1}")}}}
     Row{listOf("原文","候选","差异").forEachIndexed{i,label->FilterChip(selected=view==i,onClick={view=i},label={Text(label)})}}
-    when(view){0->Text(anchor.source);1->Text(choices[selected]);else->{val diff=textChange(anchor.source,choices[selected]);Text("首尾相同内容已省略；这是变化范围，不是逐块采纳。",fontSize=12.sp);Text("删除：${diff.removed}");Text("新增：${diff.added}")}}
+    when(view){0->Text(anchor.source);1->Text(choices[selected]);else->{
+     ReviewPassage("原文",anchor.source,MaterialTheme.colorScheme.surfaceVariant)
+     ReviewPassage("修改后",choices[selected],MaterialTheme.colorScheme.secondaryContainer)
+    }}
     Text("采用只替换选区，不改人物、大纲或其他资料。",fontSize=12.sp)
    }
    if(running)LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -215,4 +254,13 @@ private fun TextFieldValue.selectedText()=text.substring(selection.min,selection
  }
  if(referencePicker)ReferenceContextPicker(referenceContextParts(book,chapter.scene.id),includedReferences,{includedReferences=it},{referencePicker=false})
 
+}
+
+@Composable private fun ReviewPassage(label:String,text:String,color:androidx.compose.ui.graphics.Color){
+ Surface(color=color,shape=RoundedCornerShape(12.dp),modifier=Modifier.fillMaxWidth()){
+  Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+   Text(label,style=MaterialTheme.typography.titleSmall)
+   androidx.compose.foundation.text.selection.SelectionContainer{Text(text,fontSize=17.sp,lineHeight=28.sp)}
+  }
+ }
 }
