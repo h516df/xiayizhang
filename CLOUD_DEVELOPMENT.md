@@ -22,3 +22,7 @@ GitHub Actions 的 **Cloud development** 在 PR、main 推送及手动运行时�
 - [Dev Container 规范](https://containers.dev/implementors/json_reference/)
 - [GitHub Codespaces](https://docs.github.com/en/codespaces/overview)
 - [Android 命令行工具](https://developer.android.com/tools/sdkmanager)：固定工具包版本 20.0 并核对 SHA256，SDK 36 / Build Tools 36.0.0；JDK 21，兼容模块另装 JDK 17，Python 3.12。
+
+## 构建附件配额
+
+GitHub 私有仓库的 Actions 附件存储当前可能已满。测试/构建失败仍使检查失败；附件上传失败单独显示警告和运行摘要，不宣称有可下载 APK。可以从云开发工作区的构建输出获取开发包；恢复 Actions 存储可用性后才能继续上传附件。本轮不删除历史产物，也不自动公开私有构建物。

@@ -32,6 +32,8 @@ jobs:
       - name: Check this revision
         run: bash cloud/check.sh
       - name: Preserve development APK and test reports
+        id: development-artifact
+        continue-on-error: true
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -42,3 +44,8 @@ jobs:
             **/build/reports/lint-results-debug.*
           retention-days: 3
           if-no-files-found: ignore
+      - name: Report unavailable development artifacts
+        if: always() && steps.development-artifact.outcome == 'failure'
+        run: |
+          echo '::warning::Artifact upload failed. Inspect the upload logs for storage quota or network errors; no downloadable APK is claimed.'
+          echo 'Build/test results are recorded above. Development artifacts were not uploaded; use the cloud workspace outputs or restore Actions storage availability.' >> "$GITHUB_STEP_SUMMARY"
