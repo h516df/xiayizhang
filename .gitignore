@@ -11,3 +11,6 @@ evidence/
 keystore.properties
 .env
 .env.local
+
+# Disposable cloud workspace state
+.cloud/
