@@ -42,3 +42,7 @@ See WRITING_WORKSPACE.md for the stage contract and deferred work. TESTING.md di
 ## Version and updates
 
 On the bookshelf, open 检查更新 to view the bundled Chinese release notes. Network checks and GitHub device authorization start only after an explicit tap; no account token is bundled. The updater verifies package, increasing version, ABI, certificate, size and SHA256, then asks Android to install. Private-repository authorization and physical-phone upgrade/data preservation still need device acceptance.
+
+## 云端开发入口
+
+后续开发默认使用云端：[打开开发工作区](https://codespaces.new/h516df/xiayizhang) · [环境、检查命令与迁移边界](CLOUD_DEVELOPMENT.md)。
