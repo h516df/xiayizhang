@@ -4,7 +4,7 @@ android {
  defaultConfig { applicationId = "cn.privatereader"; minSdk = 26; targetSdk = 36; versionCode = 3; versionName = "0.3" }
  compileOptions { sourceCompatibility = JavaVersion.VERSION_21; targetCompatibility = JavaVersion.VERSION_21 }
  buildFeatures { compose = true }
- buildTypes { getByName("release") { isDebuggable = false; isMinifyEnabled = false } }
+ buildTypes { getByName("debug") { applicationIdSuffix = ".dev" }; getByName("release") { isDebuggable = false; isMinifyEnabled = false } }
  testOptions { unitTests.isReturnDefaultValues = true }
 }
 dependencies {
@@ -54,3 +54,11 @@ dependencies {
     testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.76.0")
 }
 
+
+// Fail closed: unsigned candidates require an explicit opt-in; final signing is external.
+gradle.taskGraph.whenReady {
+    val releaseRequested = allTasks.any { it.project == project && it.name in setOf("assembleRelease", "packageRelease", "bundleRelease") }
+    if (releaseRequested && providers.gradleProperty("unsignedRelease").orNull != "true") {
+        throw GradleException("Official signing requires original injected credentials via cloud/sign_apk.py. Use -PunsignedRelease=true only for an unsigned build candidate.")
+    }
+}

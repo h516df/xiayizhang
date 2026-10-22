@@ -22,3 +22,7 @@
 适用于本仓库的 Codex 云端任务。开发方式与项目边界见 [CLOUD_DEVELOPMENT.md](CLOUD_DEVELOPMENT.md)，功能与使用说明见 [README.md](README.md)。
 
 真实 AI 供应商、原正式签名与手机升级未由本轮验证；不配置或调用真实 AI 服务。
+
+## 2026-10-22 原签名准备授权
+
+本次用户明确要求受控云端原签名，允许迁移经过已发布 APK 验证的原材料；覆盖历史仅留本机的限制，不能换证书或发布。当前任务细节见 [docs/SIGNING_PREPARATION.md](docs/SIGNING_PREPARATION.md)，PR 未合并前 main 仍按其现有实现。

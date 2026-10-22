@@ -14,3 +14,9 @@ keystore.properties
 
 # Disposable cloud workspace state
 .cloud/
+
+*.p12
+*.jks
+*.keystore
+*.dpapi
+.signing/
