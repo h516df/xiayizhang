@@ -2,6 +2,11 @@
 
 A local-first personal novel and text reader/editor. The first dedicated-signed installable release is 0.3. It is not store-published; physical-device and real-provider acceptance remain unverified. All sample fiction is original synthetic text.
 
+> **License**: MIT, see [LICENSE](LICENSE).
+> **Status**: buildable and usable, but not fully accepted on physical devices yet. Known gaps are tracked in [Issues](https://github.com/h516df/xiayizhang/issues).
+> Build with your own signing key; the in-app update path expects the upstream signature and will reject a different one.
+> Third-party components and their notices are listed in [THIRD_PARTY.md](THIRD_PARTY.md).
+
 ## Selection-first writing and local references
 
 - Import UTF-8 / GB18030 TXT, DRM-free EPUB, plain HTML, or pasted/shared text.
