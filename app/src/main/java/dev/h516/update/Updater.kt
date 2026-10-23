@@ -213,7 +213,7 @@ class Updater internal constructor(private val context: Context, private val run
             if (active == null) null else state as? UpdateState.ReadyToInstall
         } ?: return
         try {
-            val uri = FileProvider.getUriForFile(context, UpdateConfig.PACKAGE + ".updates", ready.file)
+            val uri = FileProvider.getUriForFile(context, context.packageName + ".updates", ready.file)
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(uri, "application/vnd.android.package-archive")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)

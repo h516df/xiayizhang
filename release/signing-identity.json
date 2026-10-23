@@ -5,5 +5,10 @@
   "repository": "h516df/xiayizhang",
   "packageName": "cn.privatereader",
   "publishedTag": "v0.3",
-  "publishedApkSha256": "3c8605421a401b7cb220a82287cf9cb7ec0c3bc78e53eea5e35e192ae5fa9c80"
+  "publishedApkSha256": "3c8605421a401b7cb220a82287cf9cb7ec0c3bc78e53eea5e35e192ae5fa9c80",
+  "developmentPackageName": "cn.privatereader.dev",
+  "launcherActivity": "cn.privatereader.MainActivity",
+  "fileProviderSuffixes": [
+    ".updates"
+  ]
 }

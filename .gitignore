@@ -20,3 +20,5 @@ keystore.properties
 *.keystore
 *.dpapi
 .signing/
+__pycache__/
+*.pyc
