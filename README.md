@@ -1,5 +1,13 @@
 # 下一章 · Android 0.3
 
+## 手机下载
+
+[直接下载 Android 正式版 0.3](https://github.com/h516df/app-releases/releases/download/xiayizhang-stable-v0.3/xiayizhang-v0.3-universal.apk) · [应用库与后续版本](https://h516df.github.io/app-releases/)
+
+Android 8.0 及以上；这是官方原签名安装包，下载无需登录 GitHub。阅读和手工编辑可离线使用，AI 改写为可选功能。安装交给系统确认；保留已有 App，先导出 `.prbook` 备份，不要通过卸载清理资料。
+
+本版真机安装、覆盖升级后的资料保留及真实 AI 服务仍未完成验收。下方为开发与功能说明。
+
 A local-first personal novel and text reader/editor. The first dedicated-signed installable release is 0.3. It is not store-published; physical-device and real-provider acceptance remain unverified. All sample fiction is original synthetic text.
 
 > **License**: MIT, see [LICENSE](LICENSE).
